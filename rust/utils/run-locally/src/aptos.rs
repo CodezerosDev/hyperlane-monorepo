@@ -14,26 +14,26 @@ pub fn install_aptos_cli() {
     log!("Installing Aptos CLI");
     // aptos node run-local-testnet --with-faucet --faucet-port 8081 --force-restart --assume-yes
     let aptos_cli_dir = tempdir().unwrap();
-    Program::new("curl")
-        .flag("location")
-        .flag("silent")
-        .arg("output", "install_aptos_cli.py")
-        .working_dir(aptos_cli_dir.as_ref().to_str().unwrap())
-        .cmd(format!("https://aptos.dev/scripts/install_cli.py"))
-        .run()
-        .join();
-    Program::new("python3")
-        .working_dir(aptos_cli_dir.as_ref().to_str().unwrap())
-        .cmd(format!("install_aptos_cli.py"))
-        .run()
-        .join();
+    // Program::new("curl")
+    //     .flag("location")
+    //     .flag("silent")
+    //     .arg("output", "install_aptos_cli.py")
+    //     .working_dir(aptos_cli_dir.as_ref().to_str().unwrap())
+    //     .cmd(format!("https://aptos.dev/scripts/install_cli.py"))
+    //     .run()
+    //     .join();
+    // Program::new("python3")
+    //     .working_dir(aptos_cli_dir.as_ref().to_str().unwrap())
+    //     .cmd(format!("install_aptos_cli.py"))
+    //     .run()
+    //     .join();
 }
 
 #[apply(as_task)]
 pub fn start_aptos_local_testnet() -> AgentHandles {
     log!("Running Aptos Local Testnet");
     // aptos node run-local-testnet --with-faucet --faucet-port 8081 --force-restart --assume-yes
-    let local_net_program = Program::new("/root/.local/bin/aptos")
+    let local_net_program = Program::new("/home/codezeros-wcr-001/.local/bin/aptos")
         .cmd("node")
         .cmd("run-local-testnet")
         .flag("with-faucet")
@@ -80,6 +80,16 @@ pub fn init_aptos_modules_state() {
 }
 
 #[apply(as_task)]
+pub fn register_aptos_modules_in_test1() {
+    Program::new("bash")
+        .working_dir("../move/e2e/")
+        .cmd("init_states.sh")
+        .cmd("enroll_remote_router_to_test1")
+        .run()
+        .join();
+}
+
+#[apply(as_task)]
 pub fn aptos_send_messages() {
     Program::new("bash")
         .working_dir("../move/e2e/")
@@ -91,6 +101,26 @@ pub fn aptos_send_messages() {
         .working_dir("../move/e2e/")
         .cmd("init_states.sh")
         .cmd("send_hello_ln2_to_ln1")
+        .run()
+        .join();
+}
+
+#[apply(as_task)]
+pub fn aptos_to_evm_send_message() {
+    Program::new("bash")
+        .working_dir("../move/e2e/")
+        .cmd("init_states.sh")
+        .cmd("send_hello_ln1_to_test1")
+        .run()
+        .join();
+}
+
+#[apply(as_task)]
+pub fn evm_to_aptos_send_message() {
+    Program::new("bash")
+        .working_dir("../move/e2e/")
+        .cmd("init_states.sh")
+        .cmd("send_hello_test1_to_ln1")
         .run()
         .join();
 }

@@ -30,6 +30,15 @@ APTOSTESTNET_DOMAIN=14402
 APTOSLOCALNET1_DOMAIN=14411
 APTOSLOCALNET2_DOMAIN=14412
 BSCTESTNET_DOMAIN=97
+TEST1_DOMAIN=13371
+TEST1_VALIDATOR_ADDR="0x15d34aaf54267db7d7c367839aaf71a00a2c6a65"
+TEST1_RECEIPIENT_ADDR="0xf5059a5D33d5853360D16C683c16e67980206f36"
+TEST1_DOMAIN_ROUTER_ISM_ADDR="0xb0279Db6a2F1E01fbC8483FCCef0Be2bC6299cC3"
+#anvil 0th key
+TEST1_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+TEST1_RPC_URL="http://127.0.0.1:8545"
+TEST1_GAS_LIMIT=300000
+TEST1_MAILBOX="0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE"
 
 REST_API_URL="http://0.0.0.0:8080/v1"
 # VALIDATOR_ETH_SIGNER="0x598264ff31f198f6071226b2b7e9ce360163accd"
@@ -52,6 +61,16 @@ function init_ln1_modules() {
   
   # set ln2 validator to ism
   cd ../isms && aptos move run --assume-yes --function-id $LN1_ISMS_ADDRESS::multisig_ism::set_validators_and_threshold --args 'address:["'$LN2_VALIDATOR_ETH_ADDY'"]' u64:1 u32:$APTOSLOCALNET2_DOMAIN  --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/isms-keypair.json"
+
+  # address bytes of testReceiptant of test1 [245,5,154,93,51,213,133,51,96,209,108,104,60,22,230,121,128,32,111,54]
+  # enroll test1 evm to router
+  cd ../router && aptos move run --assume-yes --function-id $LN1_ROUTER_ADDRESS::router::enroll_remote_router --type-args $L1_ROUTER_CAP --args u32:$TEST1_DOMAIN "u8:[245,5,154,93,51,213,133,51,96,209,108,104,60,22,230,121,128,32,111,54]" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json"
+
+  # set test1 evm to ism
+  cd ../isms && aptos move run --assume-yes --function-id $LN1_ISMS_ADDRESS::multisig_ism::set_validators_and_threshold --args 'address:["'$TEST1_VALIDATOR_ADDR'"]' u64:1 u32:$TEST1_DOMAIN  --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/isms-keypair.json"
+
+  # set inter-chain gas oracle for test 1
+  cd ../igps && aptos move run --assume-yes --function-id $LN1_IGPS_ADDRESS::gas_oracle::set_remote_gas_data --args u32:$TEST1_DOMAIN u128:265380 u128:1500 --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/igps-keypair.json"
 }
 
 function init_ln2_modules() {  
@@ -73,6 +92,47 @@ function init_ln2_modules() {
   cd ../isms && aptos move run --assume-yes --function-id $LN2_ISMS_ADDRESS::multisig_ism::set_validators_and_threshold --args 'address:["'$LN1_VALIDATOR_ETH_ADDY'"]' u64:1 u32:$APTOSLOCALNET1_DOMAIN  --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet2/isms-keypair.json"
 }
 
+function enroll_remote_router_to_test1() {
+  cd "$(pwd)"
+  tx_hash_result=$(curl --silent --location --request POST 'http://127.0.0.1:8545' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "jsonrpc":"2.0",
+    "method":"eth_sendTransaction",
+    "params":[{
+      "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+          "gas": "0x1000000",
+          "gasPrice": "0x100000000",
+      "value": "0x0",
+      "data": "0x60c060405260066080523480156013575f80fd5b506040516102cd3803806102cd8339810160408190526030916037565b60a052604d565b5f602082840312156046575f80fd5b5051919050565b60805160a05161025b6100725f395f81816086015260dc01525f6048015261025b5ff3fe608060405234801561000f575f80fd5b506004361061003f575f3560e01c80636465e69f1461004357806367e404ce14610081578063f7e83aee146100b6575b5f80fd5b61006a7f000000000000000000000000000000000000000000000000000000000000000081565b60405160ff90911681526020015b60405180910390f35b6100a87f000000000000000000000000000000000000000000000000000000000000000081565b604051908152602001610078565b6100c96100c4366004610175565b6100d9565b6040519015158152602001610078565b5f7f0000000000000000000000000000000000000000000000000000000000000000610105848461010f565b1495945050505050565b5f61011e6029600984866101e1565b61012791610208565b90505b92915050565b5f8083601f840112610140575f80fd5b50813567ffffffffffffffff811115610157575f80fd5b60208301915083602082850101111561016e575f80fd5b9250929050565b5f805f8060408587031215610188575f80fd5b843567ffffffffffffffff81111561019e575f80fd5b6101aa87828801610130565b909550935050602085013567ffffffffffffffff8111156101c9575f80fd5b6101d587828801610130565b95989497509550505050565b5f80858511156101ef575f80fd5b838611156101fb575f80fd5b5050820193919092039150565b8035602083101561012a575f19602084900360031b1b169291505056fea26469706673582212200f0a243341c5251a34e7ac92e0a830a66c2378581331a601837fcaf6f5101db964736f6c634300081a0033d1eaef049ac77e63f2ffefae43e14c1a73700f25cde849b6614dc3f3580123fc"
+    }],
+    "id":1
+  }')
+
+  tx_hash=$(echo $tx_hash_result | jq -r ".result")
+#  echo $tx_hash
+
+  sleep 2
+
+  contract_addr_result=$(curl --silent --location --request POST 'http://127.0.0.1:8545' \
+  --header 'Content-Type: application/json' \
+  --data-raw "{
+      \"jsonrpc\": \"2.0\",
+      \"method\": \"eth_getTransactionReceipt\",
+      \"params\": [
+          \"$tx_hash\"
+      ],
+      \"id\": 1
+  }")
+
+  contract_addr=$(echo $contract_addr_result | jq -r '.result.contractAddress')
+#  echo $contract_addr
+
+  # need to add private key here.
+  # after that it should work like a charm
+  cast send $TEST1_DOMAIN_ROUTER_ISM_ADDR "set(uint32,address)" "$APTOSLOCALNET1_DOMAIN" "$contract_addr" --rpc-url $TEST1_RPC_URL --private-key $TEST1_PRIVATE_KEY
+}
+
 function send_hello_ln1_to_ln2() {
   
   export PATH="/root/.local/bin:$PATH"
@@ -88,6 +148,32 @@ function send_hello_ln2_to_ln1() {
   cd "$(pwd)"
 
   cd ../examples && aptos move run --function-id $LN2_EXAMPLES_ADDRESS::hello_world::send_message --args u32:$APTOSLOCALNET1_DOMAIN string:"Hello World!" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet2/examples-keypair.json" --assume-yes
+}
+
+function send_hello_ln1_to_test1() {
+
+  export PATH="/root/.local/bin:$PATH"
+
+  cd "$(pwd)"
+
+  cd ../examples && aptos move run --function-id $LN1_EXAMPLES_ADDRESS::hello_world::send_message --args u32:$TEST1_DOMAIN string:"Hello World!" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json" --assume-yes
+  message_id_response=$(cd ../examples && aptos move view --function-id $LN1_EXAMPLES_ADDRESS::hello_world::view_last_id --url $REST_API_URL)
+  message_id=$(echo $message_id_response | jq -r '.Result[0]')
+  echo "$message_id"
+  message_id_bytes=$(cd ../e2e && ./hex_to_bytes $message_id)
+  echo "$message_id_bytes"
+
+  cd ../igps && aptos move run --function-id $LN1_IGPS_ADDRESS::igps::pay_for_gas --args "u8:$message_id_bytes" u32:$TEST1_DOMAIN "u256:$TEST1_GAS_LIMIT" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json" --assume-yes
+}
+
+function send_hello_test1_to_ln1() {
+
+  export PATH="/root/.local/bin:$PATH"
+
+  cd "$(pwd)"
+  fee=$(cast call $TEST1_MAILBOX "quoteDispatch(uint32,bytes32,bytes)(uint256)" "$APTOSLOCALNET1_DOMAIN" "$LN1_EXAMPLES_ADDRESS" "0x48656c6c6f20576f726c6421" --rpc-url $TEST1_RPC_URL --private-key $TEST1_PRIVATE_KEY)
+  echo "FEE that quoted: $fee"
+  cast send $TEST1_MAILBOX --value $fee "dispatch(uint32,bytes32,bytes)" "$APTOSLOCALNET1_DOMAIN" "$LN1_EXAMPLES_ADDRESS" "0x48656c6c6f20576f726c6421" --rpc-url $TEST1_RPC_URL --private-key $TEST1_PRIVATE_KEY
 }
 
 #`address:0x1 bool:true u8:0 u256:1234 "bool:[true, false]" 'address:[["0xace", "0xbee"], []]'`

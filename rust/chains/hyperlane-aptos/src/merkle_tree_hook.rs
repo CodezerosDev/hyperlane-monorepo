@@ -1,9 +1,8 @@
 use crate::types::*;
-use crate::utils;
+use crate::{get_filtered_events, utils, AptosClient, ConnectionConf};
 use crate::AptosMailbox;
 use async_trait::async_trait;
-use derive_new::new;
-use hyperlane_core::Indexed;
+use hyperlane_core::{ContractLocator, Indexed};
 use hyperlane_core::Indexer;
 use hyperlane_core::LogMeta;
 use hyperlane_core::MerkleTreeInsertion;
@@ -70,28 +69,61 @@ impl MerkleTreeHook for AptosMailbox {
     }
 }
 
-/// Struct that retrieves event data for a Sealevel merkle tree hook contract
-#[derive(Debug, new)]
-pub struct AptosMerkleTreeHookIndexer {}
+/// Struct that retrieves event data for Aptos merkle tree hook contract
+#[derive(Debug)]
+pub struct AptosMerkleTreeHookIndexer {
+    /// Aptos client to interact with aptos chain
+    pub aptos_client: AptosClient,
+    /// re org period
+    pub reorg_period: u32,
+    /// Aptos mailbox object to access tree hook related methods
+    pub aptos_tree_hook : AptosMailbox,
+}
+
+impl AptosMerkleTreeHookIndexer {
+    /// Returns new AptosMerkleTreeHook Indexer
+    pub fn new(conf: &ConnectionConf, locator: ContractLocator, reorg_period: u32) -> Self {
+        let aptos_client = AptosClient::new(conf.url.to_string());
+        let mailbox = AptosMailbox::new(conf, locator, None).unwrap();
+        AptosMerkleTreeHookIndexer {
+            aptos_client,
+            reorg_period,
+            aptos_tree_hook: mailbox,
+        }
+    }
+}
 
 #[async_trait]
 impl Indexer<MerkleTreeInsertion> for AptosMerkleTreeHookIndexer {
     async fn fetch_logs(
         &self,
-        _range: RangeInclusive<u32>,
+        range: RangeInclusive<u32>,
     ) -> ChainResult<Vec<(Indexed<MerkleTreeInsertion>, LogMeta)>> {
-        Ok(vec![])
+        get_filtered_events::<MerkleTreeInsertion, MerkleTreeInsertionData>(
+            &self.aptos_client,
+            self.aptos_tree_hook.package_address,
+            &format!(
+                "{}::mailbox::MailBoxState",
+                self.aptos_tree_hook.package_address.to_hex_literal()
+            ),
+            "merkle_tree_events",
+            range,
+        )
+        .await
     }
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {
-        Ok(0)
+        let index = self.aptos_client.get_index().await.unwrap().into_inner();
+        Ok(index.block_height.0.saturating_sub(self.reorg_period as u64) as u32)
     }
 }
 
 #[async_trait]
 impl SequenceAwareIndexer<MerkleTreeInsertion> for AptosMerkleTreeHookIndexer {
     async fn latest_sequence_count_and_tip(&self) -> ChainResult<(Option<u32>, u32)> {
-        Ok((None, 0))
+        let tip = self.get_finalized_block_number().await?;
+        let count = self.aptos_tree_hook.count(Some(NonZeroU64::try_from(tip as u64).unwrap())).await?;
+        Ok((Some(count), tip))
     }
 } 
 

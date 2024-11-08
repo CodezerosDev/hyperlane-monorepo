@@ -17,7 +17,8 @@ module examples::hello_world {
 
   struct State has key {
     cap: router::RouterCap<HelloWorld>,
-    received_messages: vector<vector<u8>>
+    received_messages: vector<vector<u8>>,
+    last_id:vector<u8>
   }
 
   /// Initialize Module
@@ -25,7 +26,8 @@ module examples::hello_world {
     let cap = router::init<HelloWorld>(account);
     move_to<State>(account, State { 
       cap,
-      received_messages: vector::empty()
+      received_messages: vector::empty(),
+      last_id: vector::empty()
     });
   }
 
@@ -35,9 +37,9 @@ module examples::hello_world {
     dest_domain: u32,
     message: vector<u8>
   ) acquires State {
-    let state = borrow_global<State>(@examples);
+    let state = borrow_global_mut<State>(@examples);
 
-    mailbox::dispatch<HelloWorld>(
+    state.last_id = mailbox::dispatch<HelloWorld>(
       dest_domain,
       message,
       &state.cap
@@ -76,6 +78,12 @@ module examples::hello_world {
     );
 
     vector::push_back(&mut state.received_messages, msg_utils::body(&message));
+  }
+
+  #[view]
+  public fun view_last_id() : vector<u8> acquires State {
+    let state = borrow_global<State>(@examples);
+    state.last_id
   }
 
   #[test]

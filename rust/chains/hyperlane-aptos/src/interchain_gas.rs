@@ -82,14 +82,17 @@ impl Indexer<InterchainGasPayment> for AptosInterchainGasPaymasterIndexer {
         &self,
         range: RangeInclusive<u32>,
     ) -> ChainResult<Vec<(Indexed<InterchainGasPayment>, LogMeta)>> {
-        get_filtered_events::<InterchainGasPayment, GasPaymentEventData>(
+        info!("Fetching logs of IGP from:{}", &self.package_address.to_string());
+        let events = get_filtered_events::<InterchainGasPayment, GasPaymentEventData>(
             &self.aptos_client,
             self.package_address,
             &format!("{}::igps::IgpState", self.package_address.to_hex_literal()),
             "gas_payment_events",
             range,
         )
-        .await
+        .await;
+        info!("Found: {:?}", events);
+        events
     }
 
     async fn get_finalized_block_number(&self) -> ChainResult<u32> {

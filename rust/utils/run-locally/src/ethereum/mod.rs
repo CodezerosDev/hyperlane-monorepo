@@ -18,7 +18,8 @@ mod multicall;
 #[apply(as_task)]
 pub fn start_anvil(config: Arc<Config>) -> AgentHandles {
     log!("Installing typescript dependencies...");
-    let yarn_monorepo = Program::new("yarn").working_dir(MONOREPO_ROOT_PATH);
+    let yarn_path ="/home/codezeros-wcr-001/.nvm/versions/node/v18.12.0/bin/yarn";
+    let yarn_monorepo = Program::new(yarn_path).working_dir(MONOREPO_ROOT_PATH);
     yarn_monorepo.clone().cmd("install").run().join();
     if !config.is_ci_env {
         // don't need to clean in the CI
@@ -40,7 +41,7 @@ pub fn start_anvil(config: Arc<Config>) -> AgentHandles {
 
     sleep(Duration::from_secs(10));
 
-    let yarn_infra = Program::new("yarn").working_dir(INFRA_PATH);
+    let yarn_infra = Program::new(yarn_path).working_dir(INFRA_PATH);
 
     log!("Deploying hyperlane ism contracts...");
     yarn_infra.clone().cmd("deploy-ism").run().join();

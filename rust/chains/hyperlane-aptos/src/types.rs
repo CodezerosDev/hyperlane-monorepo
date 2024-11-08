@@ -1,10 +1,7 @@
 use std::str::FromStr;
 
 use aptos_sdk::rest_client::aptos_api_types::VersionedEvent;
-use hyperlane_core::{
-    accumulator::{incremental::IncrementalMerkle, TREE_DEPTH},
-    ChainCommunicationError, Decode, HyperlaneMessage, InterchainGasPayment, H256, U256,
-};
+use hyperlane_core::{accumulator::{incremental::IncrementalMerkle, TREE_DEPTH}, ChainCommunicationError, Decode, HyperlaneMessage, InterchainGasPayment, MerkleTreeInsertion, H256, U256};
 use serde::{Deserialize, Serialize};
 
 use crate::utils;
@@ -39,6 +36,9 @@ pub trait TxSpecificData {
     fn block_height(&self) -> String;
     /// return transaction_hash
     fn transaction_hash(&self) -> String;
+    // TODO: can be added nonce and event sequence later
+    // return Some index or sequence of the event or tx needs indexing
+    // fn index_or_sequence(&self) -> Option<u32>;
 }
 
 /// Event Data of Message Dispatch
@@ -79,11 +79,49 @@ impl TryInto<HyperlaneMessage> for DispatchEventData {
     }
 }
 
+/// Event Data of Message Dispatch
+#[allow(missing_docs)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MerkleTreeInsertionData {
+    pub message_id: String,
+    pub index: String,
+    pub block_height: String,
+    pub transaction_hash: String,
+    pub sender: String,
+}
+
+impl TxSpecificData for MerkleTreeInsertionData {
+    fn block_height(&self) -> String {
+        self.block_height.clone()
+    }
+    fn transaction_hash(&self) -> String {
+        self.transaction_hash.clone()
+    }
+}
+
+impl TryFrom<VersionedEvent> for MerkleTreeInsertionData {
+    type Error = ChainCommunicationError;
+    fn try_from(value: VersionedEvent) -> Result<Self, Self::Error> {
+        serde_json::from_str::<Self>(&value.data.to_string())
+            .map_err(ChainCommunicationError::from_other)
+    }
+}
+
+impl TryInto<MerkleTreeInsertion> for MerkleTreeInsertionData {
+    type Error = hyperlane_core::HyperlaneProtocolError;
+    fn try_into(self) -> Result<MerkleTreeInsertion, Self::Error> {
+        // TODO: need to manage the unwraps
+        let index = self.index.parse().unwrap();
+        let message_id = utils::convert_hex_string_to_h256(&self.message_id).unwrap();
+        Ok(MerkleTreeInsertion::new(index, message_id))
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 /// Move Value Data of GasPayment Event
 pub struct GasPaymentEventData {
     /// dest domain the gas is paid for
-    pub dest_domain: String,
+    pub dest_domain: u32,
     /// hyperlane message id
     pub message_id: String,
     /// gas amount
@@ -108,7 +146,7 @@ impl TryInto<InterchainGasPayment> for GasPaymentEventData {
     type Error = ChainCommunicationError;
     fn try_into(self) -> Result<InterchainGasPayment, Self::Error> {
         Ok(InterchainGasPayment {
-            destination: self.dest_domain.parse::<u32>().unwrap(),
+            destination: self.dest_domain,
             message_id: utils::convert_hex_string_to_h256(&self.message_id).unwrap(),
             payment: U256::from_str(&self.required_amount)
                 .map_err(ChainCommunicationError::from_other)

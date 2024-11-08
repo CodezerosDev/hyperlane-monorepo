@@ -71,7 +71,7 @@ const RELAYER_KEYS: &[&str] = &[
 /// These must be consistent with the ISM config for the test.
 const VALIDATOR_KEYS: &[&str] = &[
     // eth
-    // "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a",
+    "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a",
     // "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba",
     // "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e",
     // sealevel
@@ -79,11 +79,11 @@ const VALIDATOR_KEYS: &[&str] = &[
     // aptoslocalnet1,
     "0xb25d6937002ecd4d79c7bdfddc0053febc8896f2109e96c45bf69efd84544cd5", // 0x21779477..
     // aptoslocalnet2,
-    "0xe299c1e6e1f89b4ed2992782137e24d5edbfc51bb702635a85ed6b687c2b5988", // 0xef7a..
+    // "0xe299c1e6e1f89b4ed2992782137e24d5edbfc51bb702635a85ed6b687c2b5988", // 0xef7a..
 ];
 
 // const VALIDATOR_ORIGIN_CHAINS: &[&str] = &["test1", "test2", "test3", "sealeveltest1"];
-const VALIDATOR_ORIGIN_CHAINS: &[&str] = &["aptoslocalnet1", "aptoslocalnet2"];
+const VALIDATOR_ORIGIN_CHAINS: &[&str] = &["test1","aptoslocalnet1"];
 
 const AGENT_BIN_PATH: &str = "target/debug";
 const INFRA_PATH: &str = "../typescript/infra";
@@ -169,7 +169,8 @@ fn main() -> ExitCode {
         .hyp_env("LOG_LEVEL", "debug")
         .hyp_env("CHAINS_TEST1_INDEX_CHUNK", "1")
         .hyp_env("CHAINS_TEST2_INDEX_CHUNK", "1")
-        .hyp_env("CHAINS_TEST3_INDEX_CHUNK", "1");
+        .hyp_env("CHAINS_TEST3_INDEX_CHUNK", "1")
+        .hyp_env("CHAINS_APTOSLOCALNET1_INDEX_CHUNK", "5");
 
     let multicall_address_string: String = format!("0x{}", hex::encode(MULTICALL_ADDRESS));
 
@@ -227,8 +228,8 @@ fn main() -> ExitCode {
                 "payment": "1",
                 "matchingList": [
                     {
-                        "originDomain": ["13375","13376"],
-                        "destinationDomain": ["13375","13376"]
+                        "originDomain": ["13371"],
+                        "destinationDomain": ["13371"]
                     }
                 ]
             },
@@ -245,7 +246,7 @@ fn main() -> ExitCode {
         .arg(
             "relayChains",
             //"test1,test2,test3,sealeveltest1,sealeveltest2",
-            "aptoslocalnet1,aptoslocalnet2",
+            "test1,aptoslocalnet1",
         );
 
     let base_validator_env = common_agent_env
@@ -264,8 +265,8 @@ fn main() -> ExitCode {
         .hyp_env("CHAINS_TEST3_CUSTOMRPCURLS", "http://127.0.0.1:8545")
         .hyp_env("CHAINS_APTISLOCALNET1_RPCCONSENSUSTYPE", "httpFallback")
         .hyp_env("CHAINS_APTOSLOCALNET2_RPCCONSENSUSTYPE", "httpFallback")
-        .hyp_env("CHAINS_APTOSLOCALNET1_SIGNER_KEY", VALIDATOR_KEYS[0])
-        .hyp_env("CHAINS_APTOSLOCALNET2_SIGNER_KEY", VALIDATOR_KEYS[1])
+        .hyp_env("CHAINS_APTOSLOCALNET1_SIGNER_KEY", VALIDATOR_KEYS[1])
+        // .hyp_env("CHAINS_APTOSLOCALNET2_SIGNER_KEY", VALIDATOR_KEYS[1])
         .hyp_env("CHAINS_TEST1_BLOCKS_REORGPERIOD", "0")
         .hyp_env("CHAINS_TEST2_BLOCKS_REORGPERIOD", "0")
         .hyp_env("CHAINS_TEST3_BLOCKS_REORGPERIOD", "0")
@@ -321,32 +322,34 @@ fn main() -> ExitCode {
     // Ready to run...
     //
 
-    install_aptos_cli().join();
-    // let aptos_local_net_runner = start_aptos_local_testnet().join();
-    // state.push_agent(aptos_local_net_runner);
-    start_aptos_deploying().join();
+    // install_aptos_cli().join();
+    let aptos_local_net_runner = start_aptos_local_testnet().join();
+    state.push_agent(aptos_local_net_runner);
+    // start_aptos_deploying().join();
     init_aptos_modules_state().join();
 
-    let (solana_path, solana_path_tempdir) = install_solana_cli_tools().join();
-    state.data.push(Box::new(solana_path_tempdir));
-    let solana_program_builder = build_solana_programs(solana_path.clone());
+    // let (solana_path, solana_path_tempdir) = install_solana_cli_tools().join();
+    // state.data.push(Box::new(solana_path_tempdir));
+    // let solana_program_builder = build_solana_programs(solana_path.clone());
 
     // this task takes a long time in the CI so run it in parallel
     log!("Building rust...");
-    let build_rust = Program::new("cargo")
-        .cmd("build")
-        .arg("features", "test-utils")
-        .arg("bin", "relayer")
-        .arg("bin", "validator")
-        .arg("bin", "scraper")
-        .arg("bin", "init-db")
-        .arg("bin", "hyperlane-sealevel-client")
-        .filter_logs(|l| !l.contains("workspace-inheritance"))
-        .run();
+    // let build_rust = Program::new("cargo")
+    //     .cmd("build")
+    //     .arg("features", "test-utils")
+    //     .arg("bin", "relayer")
+    //     .arg("bin", "validator")
+    //     .arg("bin", "scraper")
+    //     .arg("bin", "init-db")
+    //     // .arg("bin", "hyperlane-sealevel-client")
+    //     .filter_logs(|l| !l.contains("workspace-inheritance"))
+    //     .run();
 
     let start_anvil = start_anvil(config.clone());
-
-    let solana_program_path = solana_program_builder.join();
+    let a = start_anvil.join();
+    state.push_agent(a);
+    register_aptos_modules_in_test1().join();
+    // let solana_program_path = solana_program_builder.join();
 
     log!("Running postgres db...");
     let postgres = Program::new("docker")
@@ -359,16 +362,16 @@ fn main() -> ExitCode {
         .spawn("SQL");
     state.push_agent(postgres);
 
-    build_rust.join();
+    // build_rust.join();
 
-    let solana_ledger_dir = tempdir().unwrap();
-    let start_solana_validator = start_solana_test_validator(
-        solana_path.clone(),
-        solana_program_path,
-        solana_ledger_dir.as_ref().to_path_buf(),
-    );
+    // let solana_ledger_dir = tempdir().unwrap();
+    // let start_solana_validator = start_solana_test_validator(
+    //     solana_path.clone(),
+    //     solana_program_path,
+    //     solana_ledger_dir.as_ref().to_path_buf(),
+    // );
 
-    let (solana_config_path, solana_validator) = start_solana_validator.join();
+    // let (solana_config_path, solana_validator) = start_solana_validator.join();
 
     // Was commented out in aptos-v3 commit
     // state.push_agent(solana_validator);
@@ -417,9 +420,9 @@ fn main() -> ExitCode {
     // kathy_env_double_insertion.clone().run().join();
 
     // Send some sealevel messages before spinning up the agents, to test the backward indexing cursor
-    for _i in 0..(SOL_MESSAGES_EXPECTED / 2) {
-        initiate_solana_hyperlane_transfer(solana_path.clone(), solana_config_path.clone()).join();
-    }
+    // for _i in 0..(SOL_MESSAGES_EXPECTED / 2) {
+    //     initiate_solana_hyperlane_transfer(solana_path.clone(), solana_config_path.clone()).join();
+    // }
 
     // spawn the rest of the validators
     for (i, validator_env) in validator_envs.into_iter().enumerate().skip(1) {
@@ -430,12 +433,14 @@ fn main() -> ExitCode {
     state.push_agent(relayer_env.spawn("RLY"));
 
     // Send some sealevel messages after spinning up the relayer, to test the forward indexing cursor
-    for _i in 0..(SOL_MESSAGES_EXPECTED / 2) {
-        initiate_solana_hyperlane_transfer(solana_path.clone(), solana_config_path.clone()).join();
-    }
+    // for _i in 0..(SOL_MESSAGES_EXPECTED / 2) {
+    //     initiate_solana_hyperlane_transfer(solana_path.clone(), solana_config_path.clone()).join();
+    // }
 
     for _i in 0..5 {
-        aptos_send_messages().join();
+        // aptos_send_messages().join();
+        aptos_to_evm_send_message().join();
+        evm_to_aptos_send_message().join();
     }
 
     log!("Setup complete! Agents running in background...");
@@ -454,13 +459,13 @@ fn main() -> ExitCode {
     while !SHUTDOWN.load(Ordering::Relaxed) {
         if config.ci_mode {
             // for CI we have to look for the end condition.
-            // if termination_invariants_met(&config, starting_relayer_balance)
-            if termination_invariants_met(
-                &config,
-                starting_relayer_balance,
-                &solana_path,
-                &solana_config_path,
-            )
+            if termination_invariants_met(&config, starting_relayer_balance, Path::new(""),&Path::new(""))
+            // if termination_invariants_met(
+            //     &config,
+            //     starting_relayer_balance,
+            //     &solana_path,
+            //     &solana_config_path,
+            // )
             .unwrap_or(false)
             {
                 // end condition reached successfully
