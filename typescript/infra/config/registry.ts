@@ -55,7 +55,7 @@ export function getChain(chainName: ChainName): ChainMetadata {
   if (testChains.includes(chainName)) {
     return testChainMetadata[chainName];
   }
-  return getRegistry().getChainMetadata(chainName);
+  return getRegistry().getChainMetadata(chainName)!;
 }
 
 export function getDomainId(chainName: ChainName): number {

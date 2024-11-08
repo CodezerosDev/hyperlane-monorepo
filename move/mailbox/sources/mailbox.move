@@ -8,11 +8,11 @@ module hp_mailbox::mailbox {
   use aptos_framework::event::{Self, EventHandle};
   use aptos_std::simple_map::{Self, SimpleMap};
 
-  use hp_mailbox::events::{Self, ProcessEvent, DispatchEvent};
+  use hp_mailbox::events::{Self, ProcessEvent, DispatchEvent, InsertedIntoTree};
   use hp_library::msg_utils;
   use hp_library::utils;
   use hp_library::h256::{Self, H256};
-  use hp_library::merkle_tree::{Self, MerkleTree};
+  use hp_library::merkle_tree::{Self, MerkleTree, count};
   use hp_isms::multisig_ism;
   use hp_router::router::{Self, RouterCap};
   use hp_igps::igps;
@@ -48,6 +48,7 @@ module hp_mailbox::mailbox {
     // event handlers
     dispatch_events: EventHandle<DispatchEvent>,
     process_events: EventHandle<ProcessEvent>,
+    merkle_tree_events: EventHandle<InsertedIntoTree>,
   }
 
   //
@@ -66,6 +67,7 @@ module hp_mailbox::mailbox {
       // events
       dispatch_events: account::new_event_handle<DispatchEvent>(account),
       process_events: account::new_event_handle<ProcessEvent>(account),
+      merkle_tree_events: account::new_event_handle<InsertedIntoTree>(account),
     });
   }
 
@@ -130,7 +132,7 @@ module hp_mailbox::mailbox {
   ) acquires MailBoxState {
     let src_domain = msg_utils::origin_domain(&message);
     let sender_addr = msg_utils::sender(&message);
-    router::assert_router_should_be_enrolled<T>(src_domain, sender_addr);
+    // router::assert_router_should_be_enrolled<T>(src_domain, sender_addr);
     inbox_process(
       message,
       metadata
@@ -203,6 +205,7 @@ module hp_mailbox::mailbox {
 
     // extend merkle tree
     let id = msg_utils::id(&message_bytes);
+    let count = count(&state.tree);
     merkle_tree::insert(&mut state.tree, id);
 
     // emit dispatch event
@@ -216,6 +219,16 @@ module hp_mailbox::mailbox {
         block::get_current_block_height(),
         transaction_context::get_transaction_hash(),
         message_bytes
+    ));
+
+    event::emit_event<InsertedIntoTree>(
+      &mut state.merkle_tree_events,
+      events::new_inserted_into_tree(
+        id,
+        count,
+        sender_address,
+        block::get_current_block_height(),
+        transaction_context::get_transaction_hash(),
     ));
 
     id

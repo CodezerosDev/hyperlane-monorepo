@@ -8,7 +8,7 @@ module hp_library::utils {
   use aptos_std::secp256k1::{Self, ECDSASignature, ECDSARawPublicKey};
 
   /// Aptos Module Version
-  const VERSION: u8 = 0;
+  const VERSION: u8 = 3;
 
   const ERROR_INVALID_RECOVERY_ID: u64 = 0x333;
 

@@ -94,6 +94,17 @@ impl HyperlaneProvider for AptosHpProvider {
     }
 
     async fn get_chain_metrics(&self) -> ChainResult<Option<ChainInfo>> {
-        todo!() // FIXME
+        let index_response = self.aptos_client.get_index().await.unwrap().into_inner();
+        let block_height = index_response.block_height.0;
+        let block_info = self.aptos_client.get_block_by_height(block_height, false).await.unwrap().into_inner();
+        let block_hash = block_info.block_hash.0.to_vec();
+        Ok(Some(ChainInfo {
+            latest_block: BlockInfo {
+                hash: H256::from_slice(block_hash.as_slice()),
+                timestamp: block_info.block_timestamp.0,
+                number: block_height,
+            },
+            min_gas_price: None,
+        }))
     }
 }

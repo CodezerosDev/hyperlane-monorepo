@@ -109,6 +109,7 @@ async function main() {
       getAddresses(environment, Modules.PROXY_FACTORY),
       multiProvider,
     );
+    console.log(ismFactory);
     deployer = new HyperlaneCoreDeployer(
       multiProvider,
       ismFactory,

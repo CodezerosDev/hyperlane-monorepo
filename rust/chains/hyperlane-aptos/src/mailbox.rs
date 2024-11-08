@@ -371,11 +371,7 @@ impl SequenceAwareIndexer<HyperlaneMessage> for AptosMailboxIndexer {
             .try_into()
             .map_err(ChainCommunicationError::from_other)?;
 
-        let tip = count.checked_sub(1).ok_or_else(|| {
-            ChainCommunicationError::from_contract_error_str(
-                "Mailbox is empty, cannot compute checkpoint",
-            )
-        })?;
+        let tip = self.get_finalized_block_number().await.map_err(ChainCommunicationError::from)?;
 
         Ok((Some(count), tip))
     }
@@ -391,11 +387,7 @@ impl SequenceAwareIndexer<H256> for AptosMailboxIndexer {
             .try_into()
             .map_err(ChainCommunicationError::from_other)?;
 
-        let tip = count.checked_sub(1).ok_or_else(|| {
-            ChainCommunicationError::from_contract_error_str(
-                "Mailbox is empty, cannot compute checkpoint",
-            )
-        })?;
+        let tip = self.get_finalized_block_number().await.map_err(ChainCommunicationError::from)?;
 
         Ok((Some(count), tip))
     }

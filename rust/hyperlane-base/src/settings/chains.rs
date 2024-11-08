@@ -6,6 +6,7 @@ use std::{collections::HashMap, sync::Arc};
 use eyre::{eyre, Context, Result};
 use ethers_prometheus::middleware::{ChainInfo, ContractInfo, PrometheusMiddlewareConf};
 use hyperlane_aptos as h_aptos;
+use hyperlane_aptos::AptosHpProvider;
 use hyperlane_core::{
     config::OperationBatchConfig, AggregationIsm, CcipReadIsm, ContractLocator, HyperlaneAbi,
     HyperlaneDomain, HyperlaneDomainProtocol, HyperlaneMessage, HyperlaneProvider, IndexMode,
@@ -196,7 +197,10 @@ impl ChainConf {
                 )?;
                 Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
             },
-            ChainConnectionConf::Aptos(_) => todo!(),
+            ChainConnectionConf::Aptos(conf) => {
+                let provider = AptosHpProvider::new(locator.domain.clone(), conf.url.to_string());
+                Ok(Box::new(provider) as Box<dyn HyperlaneProvider>)
+            },
         }
         .context(ctx)
     }
@@ -492,8 +496,8 @@ impl ChainConf {
                 )?);
                 Ok(indexer as Box<dyn SequenceAwareIndexer<MerkleTreeInsertion>>)
             }
-            ChainConnectionConf::Aptos(_) => {
-                let indexer = Box::new(h_aptos::AptosMerkleTreeHookIndexer::new());
+            ChainConnectionConf::Aptos(conf) => {
+                let indexer = Box::new(h_aptos::AptosMerkleTreeHookIndexer::new(conf, locator, self.reorg_period));
                 Ok(indexer as Box<dyn SequenceAwareIndexer<MerkleTreeInsertion>>)
             } // TODO: add tree_hook_indexer
         }

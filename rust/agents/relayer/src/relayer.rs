@@ -372,12 +372,14 @@ impl Relayer {
         &self,
         origin: &HyperlaneDomain,
     ) -> Instrumented<JoinHandle<()>> {
+        info!("IGP starting for chain: {}", origin.name());
         let index_settings = self.as_ref().settings.chains[origin.name()].index_settings();
         let contract_sync = self
             .interchain_gas_payment_syncs
             .get(origin)
             .unwrap()
             .clone();
+        info!("IGP config for chain: {:?}", index_settings);
         let cursor = contract_sync.cursor(index_settings).await;
         tokio::spawn(async move { contract_sync.clone().sync("gas_payments", cursor).await })
             .instrument(info_span!("IgpSync"))

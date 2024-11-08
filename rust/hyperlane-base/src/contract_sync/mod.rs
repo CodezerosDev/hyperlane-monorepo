@@ -65,6 +65,7 @@ where
             .metrics
             .stored_events
             .with_label_values(&[label, chain_name]);
+        info!("label, chain_name{:?}", &[label, chain_name]);
 
         loop {
             indexed_height.set(cursor.latest_queried_block() as i64);

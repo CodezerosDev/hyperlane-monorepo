@@ -12,6 +12,14 @@ module hp_mailbox::events {
     message: vector<u8>,
   }
 
+  struct InsertedIntoTree has store, drop {
+    message_id: vector<u8>,
+    index: u64,
+    sender: address,
+    block_height: u64,
+    transaction_hash: vector<u8>,
+  }
+
   struct ProcessEvent has store, drop {
     message_id: vector<u8>,
     origin_domain: u32,
@@ -39,6 +47,16 @@ module hp_mailbox::events {
     message: vector<u8>
   ): DispatchEvent {
     DispatchEvent { message_id, sender, dest_domain, recipient, message, block_height, transaction_hash }
+  }
+
+  public fun new_inserted_into_tree(
+    message_id: vector<u8>,
+    index: u64,
+    sender: address,
+    block_height: u64,
+    transaction_hash: vector<u8>
+  ): InsertedIntoTree {
+    InsertedIntoTree { message_id, index, sender, block_height, transaction_hash }
   }
   
   public fun new_process_event(
