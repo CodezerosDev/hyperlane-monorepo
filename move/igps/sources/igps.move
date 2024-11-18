@@ -3,13 +3,10 @@ module hp_igps::igps {
   use std::signer;
   use aptos_framework::coin::Self;
   use aptos_framework::aptos_coin::AptosCoin;
-  use aptos_framework::account;
-  use aptos_framework::event::{Self, EventHandle}; 
+  use aptos_framework::event;
   use aptos_framework::block;
   use aptos_framework::transaction_context;
-
   use hp_igps::gas_oracle::Self;
-  use hp_igps::events::{ Self, GasPaymentEvent, SetBeneficiaryEvent };
 
   //
   // Consts
@@ -27,9 +24,22 @@ module hp_igps::igps {
   /// Resource struct which holds contract state
   struct IgpState has key {
     owner_address: address,
-    beneficiary: address,
-    gas_payment_events: EventHandle<GasPaymentEvent>,
-    set_beneficiary_events: EventHandle<SetBeneficiaryEvent>,
+    beneficiary: address
+  }
+
+  #[event]
+  struct GasPaymentEvent has store, drop {
+    dest_domain: u32,
+    message_id: vector<u8>,
+    gas_amount: u256,
+    required_amount: u64,
+    block_height: u64,
+    transaction_hash: vector<u8>,
+  }
+
+  #[event]
+  struct SetBeneficiaryEvent has store, drop {
+    beneficiary: address
   }
 
   /// Constructor
@@ -37,9 +47,7 @@ module hp_igps::igps {
     let account_address = signer::address_of(account);
     move_to<IgpState>(account, IgpState {
       owner_address: account_address,
-      beneficiary: account_address,
-      gas_payment_events: account::new_event_handle<GasPaymentEvent>(account),
-      set_beneficiary_events: account::new_event_handle<SetBeneficiaryEvent>(account)
+      beneficiary: account_address
     });
   }
 
@@ -65,17 +73,14 @@ module hp_igps::igps {
     coin::deposit<AptosCoin>(state.beneficiary, coin);
 
     // emit GasPayment event
-    event::emit_event<GasPaymentEvent>(
-      &mut state.gas_payment_events,
-      events::new_gas_payment_event(
-        dest_domain,
-        message_id,
-        gas_amount,
-        required_amount,
-        block::get_current_block_height(),
-        transaction_context::get_transaction_hash(),
-      )
-    );
+    event::emit(GasPaymentEvent {
+      dest_domain,
+      message_id,
+      gas_amount,
+      required_amount,
+      block_height: block::get_current_block_height(),
+      transaction_hash: transaction_context::get_transaction_hash()
+    });
   }
 
   /// Admin Function to set `Beneficiary` account
@@ -88,10 +93,9 @@ module hp_igps::igps {
     state.beneficiary = beneficiary;
 
     // emit SetBeneficiaryEvent
-    event::emit_event<SetBeneficiaryEvent>(
-      &mut state.set_beneficiary_events,
-      events::new_set_beneficiary_event(beneficiary)
-    );
+    event::emit(SetBeneficiaryEvent {
+      beneficiary
+    });
   }
 
   // Assert Functions

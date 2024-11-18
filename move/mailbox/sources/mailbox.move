@@ -1,14 +1,12 @@
 module hp_mailbox::mailbox {
-  
+
   use std::vector::Self;
   use std::signer;
-  use aptos_framework::account;
   use aptos_framework::block;
   use aptos_framework::transaction_context;
-  use aptos_framework::event::{Self, EventHandle};
+  use aptos_framework::event;
   use aptos_std::simple_map::{Self, SimpleMap};
 
-  use hp_mailbox::events::{Self, ProcessEvent, DispatchEvent, InsertedIntoTree};
   use hp_library::msg_utils;
   use hp_library::utils;
   use hp_library::h256::{Self, H256};
@@ -34,7 +32,7 @@ module hp_mailbox::mailbox {
   const ERROR_DOMAIN_MISMATCH: u64 = 3;
   const ERROR_ALREADY_DELIVERED: u64 = 4;
   const ERROR_VERIFY_FAILED: u64 = 5;
-  
+
   //
   // Resources
   //
@@ -44,11 +42,7 @@ module hp_mailbox::mailbox {
     local_domain: u32,
     tree: MerkleTree,
     // Mapping (message_id => bool)
-    delivered: SimpleMap<vector<u8>, bool>,
-    // event handlers
-    dispatch_events: EventHandle<DispatchEvent>,
-    process_events: EventHandle<ProcessEvent>,
-    merkle_tree_events: EventHandle<InsertedIntoTree>,
+    delivered: SimpleMap<vector<u8>, bool>
   }
 
   //
@@ -58,22 +52,56 @@ module hp_mailbox::mailbox {
   /// constructor
   fun init_module(account: &signer) {
     let account_address = signer::address_of(account);
-    
+
     move_to<MailBoxState>(account, MailBoxState {
       owner_address: account_address,
       local_domain: NONE_DOMAIN, // not yet set
       tree: merkle_tree::new(),
-      delivered: simple_map::create<vector<u8>, bool>(),
-      // events
-      dispatch_events: account::new_event_handle<DispatchEvent>(account),
-      process_events: account::new_event_handle<ProcessEvent>(account),
-      merkle_tree_events: account::new_event_handle<InsertedIntoTree>(account),
+      delivered: simple_map::create<vector<u8>, bool>()
     });
   }
 
+  #[event]
+  // event resources
+  struct DispatchEvent has store, drop {
+    message_id: vector<u8>,
+    sender: address,
+    dest_domain: u32,
+    recipient: vector<u8>,
+    block_height: u64,
+    transaction_hash: vector<u8>,
+    message: vector<u8>,
+  }
+
+  #[event]
+  struct InsertedIntoTree has store, drop {
+    message_id: vector<u8>,
+    index: u64,
+    sender: address,
+    block_height: u64,
+    transaction_hash: vector<u8>,
+  }
+
+  #[event]
+  struct ProcessEvent has store, drop {
+    message_id: vector<u8>,
+    origin_domain: u32,
+    sender: vector<u8>,
+    recipient: address,
+    block_height: u64,
+    transaction_hash: vector<u8>,
+  }
+
+  #[event]
+  struct IsmSetEvent has store, drop {
+    message_id: vector<u8>,
+    origin_domain: u32,
+    sender: address,
+    recipient: address,
+  }
 
   // Entry Functions
-  /// Initialize state of Mailbox 
+  /// Initialize state of Mailbox
   public entry fun initialize(
     account: &signer,
     domain: u32,
@@ -81,13 +109,13 @@ module hp_mailbox::mailbox {
     assert_owner_address(signer::address_of(account));
 
     let state = borrow_global_mut<MailBoxState>(@hp_mailbox);
-    
+
     state.local_domain = domain;
   }
 
   /**
    * @notice Dispatches a message to an enrolled router via the provided Mailbox.
-   */ 
+   */
   public fun dispatch<T>(
     dest_domain: u32,
     message_body: vector<u8>,
@@ -130,8 +158,8 @@ module hp_mailbox::mailbox {
     metadata: vector<u8>,
     _cap: &RouterCap<T>
   ) acquires MailBoxState {
-    let src_domain = msg_utils::origin_domain(&message);
-    let sender_addr = msg_utils::sender(&message);
+    // let src_domain = msg_utils::origin_domain(&message);
+    // let sender_addr = msg_utils::sender(&message);
     // router::assert_router_should_be_enrolled<T>(src_domain, sender_addr);
     inbox_process(
       message,
@@ -157,20 +185,18 @@ module hp_mailbox::mailbox {
 
     // mark it as delivered
     simple_map::add(&mut state.delivered, id, true);
-    
+
     assert!(multisig_ism::verify(&metadata, &message), ERROR_VERIFY_FAILED);
 
     // emit process event
-    event::emit_event<ProcessEvent>(
-      &mut state.process_events,
-      events::new_process_event(
-        id,
-        state.local_domain,
-        msg_utils::sender(&message),
-        msg_utils::recipient(&message),
-        block::get_current_block_height(),
-        transaction_context::get_transaction_hash(),
-      ));
+    event::emit(ProcessEvent {
+      message_id: id,
+      origin_domain: state.local_domain,
+      sender: msg_utils::sender(&message),
+      recipient: msg_utils::recipient(&message),
+      block_height: block::get_current_block_height(),
+      transaction_hash: transaction_context::get_transaction_hash()
+    });
   }
 
   /// Dispatches a message to the destination domain & recipient.
@@ -180,13 +206,13 @@ module hp_mailbox::mailbox {
     _recipient: H256, // package::module
     message_body: vector<u8>,
   ): vector<u8> acquires MailBoxState {
-    
+
     let tree_count = outbox_get_count();
 
     let state = borrow_global_mut<MailBoxState>(@hp_mailbox);
 
     assert!(vector::length(&message_body) < MAX_MESSAGE_BODY_BYTES, ERROR_MSG_LENGTH_OVERFLOW);
-    
+
     // convert H256 to 32-bytes vector
     let recipient = h256::to_bytes(&_recipient);
 
@@ -209,28 +235,23 @@ module hp_mailbox::mailbox {
     merkle_tree::insert(&mut state.tree, id);
 
     // emit dispatch event
-    event::emit_event<DispatchEvent>(
-      &mut state.dispatch_events,
-      events::new_dispatch_event(
-        id,
-        sender_address,
-        destination_domain,
-        recipient,
-        block::get_current_block_height(),
-        transaction_context::get_transaction_hash(),
-        message_bytes
-    ));
+    event::emit(DispatchEvent {
+      message_id: id,
+      sender: sender_address,
+      dest_domain: destination_domain,
+      recipient,
+      block_height: block::get_current_block_height(),
+      transaction_hash: transaction_context::get_transaction_hash(),
+      message: message_bytes
+    });
 
-    event::emit_event<InsertedIntoTree>(
-      &mut state.merkle_tree_events,
-      events::new_inserted_into_tree(
-        id,
-        count,
-        sender_address,
-        block::get_current_block_height(),
-        transaction_context::get_transaction_hash(),
-    ));
-
+    event::emit(InsertedIntoTree {
+      message_id: id,
+      index: count,
+      sender: sender_address,
+      block_height: block::get_current_block_height(),
+      transaction_hash: transaction_context::get_transaction_hash()
+    });
     id
   }
 
@@ -273,7 +294,7 @@ module hp_mailbox::mailbox {
   public fun outbox_get_tree(): MerkleTree acquires MailBoxState {
     borrow_global<MailBoxState>(@hp_mailbox).tree
   }
-  
+
   #[view]
   /// Returns the number of inserted leaves in the tree
   public fun outbox_get_count(): u32 acquires MailBoxState {

@@ -8,11 +8,8 @@ module hp_validator::validator_announce {
   
   use aptos_std::simple_map::{Self, SimpleMap};
 
-  use aptos_framework::event::{Self, EventHandle};
-  use aptos_framework::account;
-
+  use aptos_framework::event;
   use hp_library::utils::{Self, hash_concat};
-  use hp_validator::events::{Self, AnnouncementEvent};
 
   //
   // Constants
@@ -30,9 +27,14 @@ module hp_validator::validator_announce {
     domain: u32,
     storage_locations: SimpleMap<address, vector<String>>,
     replay_protection: vector<vector<u8>>,
-    validators_list: vector<address>,
-    // event handlers
-    announcement_events: EventHandle<AnnouncementEvent>,
+    validators_list: vector<address>
+  }
+
+  #[event]
+  // event resources
+  struct AnnouncementEvent has store, drop {
+    validator: address,
+    storage_location: String,
   }
 
   fun init_module(account: &signer) {
@@ -41,8 +43,7 @@ module hp_validator::validator_announce {
       domain: 0,
       storage_locations: simple_map::create<address, vector<String>>(),
       replay_protection: vector::empty<vector<u8>>(),
-      validators_list: vector::empty<address>(),
-      announcement_events: account::new_event_handle<AnnouncementEvent>(account)
+      validators_list: vector::empty<address>()
     });
   }
 
@@ -55,7 +56,7 @@ module hp_validator::validator_announce {
   }
 
   public entry fun announce(
-    account: &signer,
+    _account: &signer,
     validator: address,
     signature: vector<u8>,
     storage_location: String
@@ -91,13 +92,10 @@ module hp_validator::validator_announce {
     vector::push_back(locations, storage_location);
 
     // emit events
-    event::emit_event<AnnouncementEvent>(
-      &mut validator_state.announcement_events,
-      events::new_validator_announce_event(
-        validator,
-        storage_location
-      )
-    );
+    event::emit(AnnouncementEvent {
+      validator,
+      storage_location
+    });
   }
 
   fun verify_validator_signed_announcement_internal(
