@@ -1,12 +1,16 @@
 [package]
-name = "HyperlaneMailBox"
+name = "tokens"
 version = "1.0.0"
-authors = ["jack@movementlabs.xyz"]
+authors = []
 
 [addresses]
+tokens = "0x123451"
+hp_router = "0x123452"
+hp_library = "0x123453"
 hp_mailbox = "0x123454"
 
 [dev-addresses]
+
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
@@ -19,10 +23,10 @@ local = "../library"
 [dependencies.HyperlaneISM]
 local = "../isms"
 
+[dependencies.HyperlaneMailBox]
+local = "../mailbox"
+
 [dependencies.HyperlaneRouter]
 local = "../router"
-
-[dependencies.HyperlaneIGP]
-local = "../igps"
 
 [dev-dependencies]

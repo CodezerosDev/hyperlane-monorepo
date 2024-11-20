@@ -5,12 +5,16 @@ authors = []
 
 [addresses]
 examples = "_"
+hp_router = "0x123452"
+hp_library = "0x123453"
+hp_mailbox = "0x123454"
 
 [dev-addresses]
 
+
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "testnet"
+rev = "mainnet"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.HyperlaneLibrary]

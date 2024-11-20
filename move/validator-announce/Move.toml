@@ -10,7 +10,7 @@ hp_validator = "_"
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "testnet"
+rev = "mainnet"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.HyperlaneLibrary]

@@ -4,13 +4,13 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-hp_router = "_"
+hp_router = "0x123452"
 
 [dev-addresses]
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "testnet"
+rev = "mainnet"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.HyperlaneLibrary]

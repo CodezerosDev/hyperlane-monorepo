@@ -4,13 +4,13 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-hp_isms = "_"
+hp_isms = "0x12345"
 
 [dev-addresses]
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
-rev = "testnet"
+rev = "mainnet"
 subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.HyperlaneLibrary]
