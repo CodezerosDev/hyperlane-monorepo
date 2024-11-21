@@ -48,6 +48,7 @@ fund_and_publish "igps" $LN1_IGPS_ADDRESS "../e2e/aptos-test-keys/localnet1/igps
 fund_and_publish "router" $LN1_ROUTER_ADDRESS "../e2e/aptos-test-keys/localnet1/router-keypair.json" "$LN1_ADDRESS_MATHING"
 fund_and_publish "mailbox" $LN1_MAILBOX_ADDRESS "../e2e/aptos-test-keys/localnet1/mailbox-keypair.json" "$LN1_ADDRESS_MATHING"
 fund_and_publish "examples" $LN1_EXAMPLES_ADDRESS "../e2e/aptos-test-keys/localnet1/examples-keypair.json" "$LN1_ADDRESS_MATHING"
+fund_and_publish "tokens" $LN1_EXAMPLES_ADDRESS "../e2e/aptos-test-keys/localnet1/examples-keypair.json" "$LN1_ADDRESS_MATHING"
 
 LN2_ADDRESS_MATHING="--named-addresses hp_library=$LN2_LIBRARY_ADDRESS,hp_validator=$LN2_VALIDATOR_ANNOUNCE_ADDRESS,hp_isms=$LN2_ISMS_ADDRESS,hp_igps=$LN2_IGPS_ADDRESS,hp_mailbox=$LN2_MAILBOX_ADDRESS,hp_router=$LN2_ROUTER_ADDRESS,examples=$LN2_EXAMPLES_ADDRESS"
 
@@ -58,6 +59,7 @@ fund_and_publish "igps" $LN2_IGPS_ADDRESS "../e2e/aptos-test-keys/localnet2/igps
 fund_and_publish "router" $LN2_ROUTER_ADDRESS "../e2e/aptos-test-keys/localnet2/router-keypair.json" "$LN2_ADDRESS_MATHING"
 fund_and_publish "mailbox" $LN2_MAILBOX_ADDRESS "../e2e/aptos-test-keys/localnet2/mailbox-keypair.json" "$LN2_ADDRESS_MATHING"
 fund_and_publish "examples" $LN2_EXAMPLES_ADDRESS "../e2e/aptos-test-keys/localnet2/examples-keypair.json" "$LN2_ADDRESS_MATHING"
+fund_and_publish "tokens" $LN2_EXAMPLES_ADDRESS "../e2e/aptos-test-keys/localnet2/examples-keypair.json" "$LN2_ADDRESS_MATHING"
 
 ################# Fund signers ####################
 function fund() {

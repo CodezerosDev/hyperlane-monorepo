@@ -7,6 +7,7 @@ LN1_LIBRARY_ADDRESS="0xe818394d0f37cd6accd369cdd4e723c8dc4f9b8d2517264fec3d9e8ca
 LN1_MAILBOX_ADDRESS="0x476307c25c54b76b331a4e3422ae293ada422f5455efed1553cf4de1222a108f"
 LN1_ROUTER_ADDRESS="0xafce3ab5dc5d513c13e746cef4d65bf54f4abdcb34ea8ab0728d01c035610e3d"
 LN1_VALIDATOR_ANNOUNCE_ADDRESS="0xa4a4eb4bab83650ba62cabe9ce429ad021b29c12f2fbf808768838255c7e191d"
+LN1_TOKEN_DECIMALS=6
 
 LN2_EXAMPLES_ADDRESS="0xb2586f8d1347b988157b9e7aaea24d19064dfb596835145db1f93ff931948732"
 # [178,88,111,141,19,71,185,136,21,123,158,122,174,162,77,25,6,77,251,89,104,53,20,93,177,249,63,249,49,148,135,50]
@@ -16,6 +17,7 @@ LN2_LIBRARY_ADDRESS="0xc29e4ea7972150a5f3bd6531eba94907ce2be3b47eb17eaee40d381d2
 LN2_MAILBOX_ADDRESS="0xd338e68ca12527e77cab474ee8ec91ffa4e6512ced9ae8f47e28c5c7c4804b78"
 LN2_ROUTER_ADDRESS="0xd85669f567da6d24d296dccb7a7bfa1c666530eeb0e7b294791094e7a2dce8e3"
 LN2_VALIDATOR_ANNOUNCE_ADDRESS="0xce1f65297828eaa6e460724a869317154f05cdde26619c0e5c0ca23aac3f69c7"
+LN2_TOKEN_DECIMALS=6
 
 LN1_VALIDATOR_SIGNER_ADDRESS="0x21779477148b80ec9e123cc087a04ebbfb4a9de0ba64aa8f31510a0266423bb9"
 LN1_VALIDATOR_ETH_ADDY="0x04e7bc384e10353c714327f7b85b3d0ceb52bf6d"
@@ -25,11 +27,11 @@ LN2_VALIDATOR_SIGNER_ADDRESS="0xef7adb55757d157d1a1f76d5d04806aba4f9099a32260b93
 LN2_VALIDATOR_ETH_ADDY="0x8a9f9818b6ba031c5f2c8baf850942d4c98fa2ee"
 LN2_RELAYER_SIGNER_ADDRESS="0xcc7867910e0c3a1b8f304255123a4459c0222c78987d628f1effbf122f436b7b"
 
-APTOSDEVNET_DOMAIN=14477
-APTOSTESTNET_DOMAIN=14402
+#APTOSDEVNET_DOMAIN=14477
+#APTOSTESTNET_DOMAIN=14402
 APTOSLOCALNET1_DOMAIN=14411
 APTOSLOCALNET2_DOMAIN=14412
-BSCTESTNET_DOMAIN=97
+#BSCTESTNET_DOMAIN=97
 TEST1_DOMAIN=13371
 TEST1_VALIDATOR_ADDR="0x15d34aaf54267db7d7c367839aaf71a00a2c6a65"
 TEST1_RECEIPIENT_ADDR="0xf5059a5D33d5853360D16C683c16e67980206f36"
@@ -39,9 +41,77 @@ TEST1_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f
 TEST1_RPC_URL="http://127.0.0.1:8545"
 TEST1_GAS_LIMIT=300000
 TEST1_MAILBOX="0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE"
+TEST1_TOKEN_DECIMALS=6
 
 REST_API_URL="http://0.0.0.0:8080/v1"
 # VALIDATOR_ETH_SIGNER="0x598264ff31f198f6071226b2b7e9ce360163accd"
+
+# inits LN1 collateral
+function init_ln1_modules_for_token_collateral() {
+  # To make use of aptos cli
+  export PATH="/root/.local/bin:$PATH"
+
+  cd "$(pwd)"
+  # init validator
+  cd ../validator-announce && aptos move run --assume-yes --function-id $LN1_VALIDATOR_ANNOUNCE_ADDRESS::validator_announce::initialize --args address:$LN1_MAILBOX_ADDRESS u32:$APTOSLOCALNET1_DOMAIN --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/validator-announce-keypair.json"
+
+  # setting router
+  L1_ROUTER_CAP="$LN1_EXAMPLES_ADDRESS::hyper_coin_collateral::HyperSupraCollateral"
+  # enroll ln2 router
+  cd ../router && aptos move run --assume-yes --function-id $LN1_ROUTER_ADDRESS::router::enroll_remote_router --type-args $L1_ROUTER_CAP --args u32:$APTOSLOCALNET2_DOMAIN "u8:[178,88,111,141,19,71,185,136,21,123,158,122,174,162,77,25,6,77,251,89,104,53,20,93,177,249,63,249,49,148,135,50]" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json"
+
+  cd ../tokens && aptos move run --assume-yes --function-id $LN1_EXAMPLES_ADDRESS::hyper_coin_collateral::set_destination_token_decimal --args u32:$APTOSLOCALNET2_DOMAIN u8:$LN2_TOKEN_DECIMALS --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json"
+
+  cd ../mailbox && aptos move run --assume-yes --function-id $LN1_MAILBOX_ADDRESS::mailbox::initialize --args u32:$APTOSLOCALNET1_DOMAIN --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/mailbox-keypair.json"
+
+  # set ln2 validator to ism
+  cd ../isms && aptos move run --assume-yes --function-id $LN1_ISMS_ADDRESS::multisig_ism::set_validators_and_threshold --args 'address:["'$LN2_VALIDATOR_ETH_ADDY'"]' u64:1 u32:$APTOSLOCALNET2_DOMAIN  --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/isms-keypair.json"
+
+  # address bytes of testReceiptant of test1 [245,5,154,93,51,213,133,51,96,209,108,104,60,22,230,121,128,32,111,54]
+  # enroll test1 evm to router
+  cd ../router && aptos move run --assume-yes --function-id $LN1_ROUTER_ADDRESS::router::enroll_remote_router --type-args $L1_ROUTER_CAP --args u32:$TEST1_DOMAIN "u8:[245,5,154,93,51,213,133,51,96,209,108,104,60,22,230,121,128,32,111,54]" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json"
+
+  cd ../tokens && aptos move run --assume-yes --function-id $LN1_EXAMPLES_ADDRESS::hyper_coin::set_destination_token_decimal --args u32:$TEST1_DOMAIN u8:TEST1_TOKEN_DECIMALS --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json"
+  # set test1 evm to ism
+  cd ../isms && aptos move run --assume-yes --function-id $LN1_ISMS_ADDRESS::multisig_ism::set_validators_and_threshold --args 'address:["'$TEST1_VALIDATOR_ADDR'"]' u64:1 u32:$TEST1_DOMAIN  --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/isms-keypair.json"
+
+  # set inter-chain gas oracle for test 1
+  cd ../igps && aptos move run --assume-yes --function-id $LN1_IGPS_ADDRESS::gas_oracle::set_remote_gas_data --args u32:$TEST1_DOMAIN u128:265380 u128:1500 --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/igps-keypair.json"
+}
+
+
+
+function init_ln1_modules_for_token() {
+  # To make use of aptos cli
+  export PATH="/root/.local/bin:$PATH"
+
+  cd "$(pwd)"
+  # init validator
+  cd ../validator-announce && aptos move run --assume-yes --function-id $LN1_VALIDATOR_ANNOUNCE_ADDRESS::validator_announce::initialize --args address:$LN1_MAILBOX_ADDRESS u32:$APTOSLOCALNET1_DOMAIN --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/validator-announce-keypair.json"
+
+  # setting router
+  L1_ROUTER_CAP="$LN1_EXAMPLES_ADDRESS::hyper_coin::HyperSupraCoin"
+  # enroll ln2 router
+  cd ../router && aptos move run --assume-yes --function-id $LN1_ROUTER_ADDRESS::router::enroll_remote_router --type-args $L1_ROUTER_CAP --args u32:$APTOSLOCALNET2_DOMAIN "u8:[178,88,111,141,19,71,185,136,21,123,158,122,174,162,77,25,6,77,251,89,104,53,20,93,177,249,63,249,49,148,135,50]" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json"
+
+  cd ../tokens && aptos move run --assume-yes --function-id $LN1_EXAMPLES_ADDRESS::hyper_coin::set_destination_token_decimal --args u32:$APTOSLOCALNET2_DOMAIN u8:$LN2_TOKEN_DECIMALS --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json"
+
+  cd ../mailbox && aptos move run --assume-yes --function-id $LN1_MAILBOX_ADDRESS::mailbox::initialize --args u32:$APTOSLOCALNET1_DOMAIN --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/mailbox-keypair.json"
+
+  # set ln2 validator to ism
+  cd ../isms && aptos move run --assume-yes --function-id $LN1_ISMS_ADDRESS::multisig_ism::set_validators_and_threshold --args 'address:["'$LN2_VALIDATOR_ETH_ADDY'"]' u64:1 u32:$APTOSLOCALNET2_DOMAIN  --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/isms-keypair.json"
+
+  # address bytes of testReceiptant of test1 [245,5,154,93,51,213,133,51,96,209,108,104,60,22,230,121,128,32,111,54]
+  # enroll test1 evm to router
+  cd ../router && aptos move run --assume-yes --function-id $LN1_ROUTER_ADDRESS::router::enroll_remote_router --type-args $L1_ROUTER_CAP --args u32:$TEST1_DOMAIN "u8:[245,5,154,93,51,213,133,51,96,209,108,104,60,22,230,121,128,32,111,54]" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json"
+
+  cd ../tokens && aptos move run --assume-yes --function-id $LN1_EXAMPLES_ADDRESS::hyper_coin::set_destination_token_decimal --args u32:$TEST1_DOMAIN u8:TEST1_TOKEN_DECIMALS --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json"
+  # set test1 evm to ism
+  cd ../isms && aptos move run --assume-yes --function-id $LN1_ISMS_ADDRESS::multisig_ism::set_validators_and_threshold --args 'address:["'$TEST1_VALIDATOR_ADDR'"]' u64:1 u32:$TEST1_DOMAIN  --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/isms-keypair.json"
+
+  # set inter-chain gas oracle for test 1
+  cd ../igps && aptos move run --assume-yes --function-id $LN1_IGPS_ADDRESS::gas_oracle::set_remote_gas_data --args u32:$TEST1_DOMAIN u128:265380 u128:1500 --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/igps-keypair.json"
+}
 
 # inits
 function init_ln1_modules() {  
@@ -71,6 +141,27 @@ function init_ln1_modules() {
 
   # set inter-chain gas oracle for test 1
   cd ../igps && aptos move run --assume-yes --function-id $LN1_IGPS_ADDRESS::gas_oracle::set_remote_gas_data --args u32:$TEST1_DOMAIN u128:265380 u128:1500 --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/igps-keypair.json"
+}
+
+function init_ln2_modules_for_token() {
+  # To make use of aptos cli
+  export PATH="/root/.local/bin:$PATH"
+
+  cd "$(pwd)"
+  # init validator
+  cd ../validator-announce && aptos move run --assume-yes --function-id $LN2_VALIDATOR_ANNOUNCE_ADDRESS::validator_announce::initialize --args address:$LN2_MAILBOX_ADDRESS u32:$APTOSLOCALNET2_DOMAIN --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet2/validator-announce-keypair.json"
+
+  # setting router
+  L2_ROUTER_CAP="$LN2_EXAMPLES_ADDRESS::hyper_coin::HyperSupraCoin"
+  # enroll ln1 router
+  cd ../router && aptos move run --assume-yes --function-id $LN2_ROUTER_ADDRESS::router::enroll_remote_router --type-args $L2_ROUTER_CAP --args u32:$APTOSLOCALNET1_DOMAIN "u8:[209,234,239,4,154,199,126,99,242,255,239,174,67,225,76,26,115,112,15,37,205,232,73,182,97,77,195,243,88,1,35,252]" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet2/examples-keypair.json"
+
+  cd ../tokens && aptos move run --assume-yes --function-id $LN2_EXAMPLES_ADDRESS::hyper_coin::set_destination_token_decimal --args u32:$APTOSLOCALNET1_DOMAIN u8:LN1_TOKEN_DECIMALS --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet2/examples-keypair.json"
+
+  cd ../mailbox && aptos move run --assume-yes --function-id $LN2_MAILBOX_ADDRESS::mailbox::initialize --args u32:$APTOSLOCALNET2_DOMAIN --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet2/mailbox-keypair.json"
+
+  # set ln1 validator to ism
+  cd ../isms && aptos move run --assume-yes --function-id $LN2_ISMS_ADDRESS::multisig_ism::set_validators_and_threshold --args 'address:["'$LN1_VALIDATOR_ETH_ADDY'"]' u64:1 u32:$APTOSLOCALNET1_DOMAIN  --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet2/isms-keypair.json"
 }
 
 function init_ln2_modules() {  
@@ -141,6 +232,17 @@ function send_hello_ln1_to_ln2() {
 
   cd ../examples && aptos move run --function-id $LN1_EXAMPLES_ADDRESS::hello_world::send_message --args u32:$APTOSLOCALNET2_DOMAIN string:"Hello World!" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json" --assume-yes
 }
+
+function send_token_collateral_from_ln1_to_token_ln2() {
+
+  export PATH="/root/.local/bin:$PATH"
+
+  cd "$(pwd)"
+
+  cd ../tokens && aptos move run --function-id $LN1_EXAMPLES_ADDRESS::hyper_coin_collateral::transfer_remote --args u32:$APTOSLOCALNET2_DOMAIN hex:$LN2_EXAMPLES_ADDRESS u64:10000 --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json" --assume-yes
+}
+
+
 function send_hello_ln2_to_ln1() {
   
   export PATH="/root/.local/bin:$PATH"
@@ -164,6 +266,33 @@ function send_hello_ln1_to_test1() {
   echo "$message_id_bytes"
 
   cd ../igps && aptos move run --function-id $LN1_IGPS_ADDRESS::igps::pay_for_gas --args "u8:$message_id_bytes" u32:$TEST1_DOMAIN "u256:$TEST1_GAS_LIMIT" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json" --assume-yes
+}
+
+function send_tokens_collateral_ln1_to_tokens_test1() {
+
+  export PATH="/root/.local/bin:$PATH"
+
+  cd "$(pwd)"
+
+   cd ../tokens && aptos move run --function-id $LN1_EXAMPLES_ADDRESS::hyper_coin_collateral::transfer_remote --args u32:$APTOSLOCALNET2_DOMAIN hex:$TEST1_RECEIPIENT_ADDR u64:10000 --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json" --assume-yes
+  message_id_response=$(cd ../examples && aptos move view --function-id $LN1_EXAMPLES_ADDRESS::hyper_coin_collateral::view_last_id --url $REST_API_URL)
+  message_id=$(echo $message_id_response | jq -r '.Result[0]')
+  echo "$message_id"
+  message_id_bytes=$(cd ../e2e && ./hex_to_bytes $message_id)
+  echo "$message_id_bytes"
+
+  cd ../igps && aptos move run --function-id $LN1_IGPS_ADDRESS::igps::pay_for_gas --args "u8:$message_id_bytes" u32:$TEST1_DOMAIN "u256:$TEST1_GAS_LIMIT" --url $REST_API_URL --private-key-file "../e2e/aptos-test-keys/localnet1/examples-keypair.json" --assume-yes
+}
+
+function send_test_token_test1_to_ln1() {
+#  Not implemented
+
+  export PATH="/root/.local/bin:$PATH"
+
+  cd "$(pwd)"
+  fee=$(cast call $TEST1_MAILBOX "quoteDispatch(uint32,bytes32,bytes)(uint256)" "$APTOSLOCALNET1_DOMAIN" "$LN1_EXAMPLES_ADDRESS" "0x48656c6c6f20576f726c6421" --rpc-url $TEST1_RPC_URL --private-key $TEST1_PRIVATE_KEY)
+  echo "FEE that quoted: $fee"
+  cast send $TEST1_MAILBOX --value $fee "dispatch(uint32,bytes32,bytes)" "$APTOSLOCALNET1_DOMAIN" "$LN1_EXAMPLES_ADDRESS" "0x48656c6c6f20576f726c6421" --rpc-url $TEST1_RPC_URL --private-key $TEST1_PRIVATE_KEY
 }
 
 function send_hello_test1_to_ln1() {
