@@ -13,35 +13,38 @@ module tokens::hyper_coin_collateral {
     use aptos_framework::aptos_account;
     use aptos_framework::account::{Self, SignerCapability};
     use aptos_framework::aptos_coin::AptosCoin;
+    use tokens::fusion_coin::FusionCoin;
 
     // Constants
 
     const DEFAULT_GAS_AMOUNT: u256 = 1_000_000_000;
 
-    const TOKEN_DEPOSIT_ACCOUNT_SEED: vector<u8> = b"supra_coin::SupraCoin";
+    const TOKEN_DEPOSIT_ACCOUNT_SEED: vector<u8> = b"fusion_coin::FusionCoin";
 
     // Errors
     const ERROR_INVALID_DOMAIN: u64 = 0;
 
-    struct HyperSupra {} // Actual coin type is going to be different from this
+    struct HyperSupraCollateral {} // Actual coin type is going to be different from this
 
     struct State has key {
-        cap: router::RouterCap<HyperSupra>,
+        cap: router::RouterCap<HyperSupraCollateral>,
         destination_decimals: Table<u32, u8>,
         received_messages: vector<vector<u8>>,
         signer_cap: SignerCapability,
+        last_id: vector<u8>
     }
 
 
     /// Initialize Module
     fun init_module(account: &signer) {
-        let cap = router::init<HyperSupra>(account);
+        let cap = router::init<HyperSupraCollateral>(account);
         let (resource_signer, signer_cap) = account::create_resource_account(account, TOKEN_DEPOSIT_ACCOUNT_SEED);
         move_to<State>(&resource_signer, State {
             cap,
             destination_decimals: table::new(),
             received_messages: vector::empty(),
-            signer_cap
+            signer_cap,
+            last_id: vector::empty()
         });
     }
 
@@ -76,27 +79,27 @@ module tokens::hyper_coin_collateral {
         dest_domain: u32,
         dest_receipient: vector<u8>,
         amount: u64) acquires State {
-        let state = borrow_global<State>(@tokens);
+        let state = borrow_global_mut<State>(@tokens);
         assert!(table::contains(&state.destination_decimals, dest_domain), 2);
         let data_amount: u256;
-        let source_decimals = coin::decimals<HyperSupra>();
+        let source_decimals = coin::decimals<FusionCoin>();
         let destination_decimals = *table::borrow(&state.destination_decimals, dest_domain);
         if (source_decimals < destination_decimals) {
             data_amount = (amount as u256) * calculate_power(10, ((destination_decimals - source_decimals) as u16));
         }
-        else if (source_decimals < destination_decimals) {
+        else if (source_decimals == destination_decimals) {
             data_amount = (amount as u256);
         }
         else {
             data_amount = (amount as u256) / calculate_power(10, ((source_decimals - destination_decimals) as u16));
             amount = (data_amount as u64);
         };
-        aptos_account::transfer_coins<AptosCoin>(
+        aptos_account::transfer_coins<FusionCoin>(
             account,
             generate_token_deposit_account_address(),
             amount
         );
-        mailbox::dispatch<HyperSupra>(
+        state.last_id = mailbox::dispatch<HyperSupraCollateral>(
             dest_domain,
             token_msg_utils::format_token_message_into_bytes(
                 h256::from_bytes(&dest_receipient),
@@ -105,6 +108,7 @@ module tokens::hyper_coin_collateral {
             ),
             &state.cap
         );
+        // add an event
     }
 
     public entry fun transfer_remote_with_gas(
@@ -112,15 +116,15 @@ module tokens::hyper_coin_collateral {
         dest_domain: u32,
         dest_receipient: vector<u8>,
         amount: u64) acquires State {
-        let state = borrow_global<State>(@tokens);
+        let state = borrow_global_mut<State>(@tokens);
         assert!(table::contains(&state.destination_decimals, dest_domain), 2);
         let data_amount: u256;
-        let source_decimals = coin::decimals<HyperSupra>();
+        let source_decimals = coin::decimals<FusionCoin>();
         let destination_decimals = *table::borrow(&state.destination_decimals, dest_domain);
         if (source_decimals < destination_decimals) {
             data_amount = (amount as u256) * calculate_power(10, ((destination_decimals - source_decimals) as u16));
         }
-        else if (source_decimals < destination_decimals) {
+        else if (source_decimals == destination_decimals) {
             data_amount = (amount as u256);
         }
         else {
@@ -128,12 +132,12 @@ module tokens::hyper_coin_collateral {
             amount = (data_amount as u64);
         };
         let sender = signer::address_of(account);
-        aptos_account::transfer_coins<AptosCoin>(
+        aptos_account::transfer_coins<FusionCoin>(
             account,
             generate_token_deposit_account_address(),
             amount
         );
-        mailbox::dispatch_with_gas<HyperSupra>(
+        state.last_id = mailbox::dispatch_with_gas<HyperSupraCollateral>(
             account,
             dest_domain,
             token_msg_utils::format_token_message_into_bytes(
@@ -144,6 +148,7 @@ module tokens::hyper_coin_collateral {
             DEFAULT_GAS_AMOUNT,
             &state.cap
         );
+        // add an event
     }
 
 
@@ -154,23 +159,54 @@ module tokens::hyper_coin_collateral {
     ) acquires State {
         let state = borrow_global_mut<State>(@tokens);
 
-        mailbox::handle_message<HyperSupra>(
+        mailbox::handle_message<HyperSupraCollateral>(
             message,
             metadata,
             &state.cap
         );
+
+
+        let src_domain = msg_utils::origin_domain(&message);
 
         let message_body = msg_utils::body(&message);
 
         let receipient_address = token_msg_utils::recipient(&message_body);
         let receipient_amount = token_msg_utils::amount(&message_body);
 
-        aptos_account::transfer_coins<AptosCoin>(
+
+        let destination_decimals = coin::decimals<FusionCoin>();
+        let source_decimals = *table::borrow(&state.destination_decimals, src_domain);
+
+        let amount;
+
+        if (source_decimals < destination_decimals) {
+            amount = (receipient_amount * calculate_power(
+                10,
+                ((destination_decimals - source_decimals) as u16)
+            ) as u64);
+        }
+        else if (source_decimals == destination_decimals) {
+            amount = (receipient_amount as u64);
+        }
+        else {
+            amount = ((receipient_amount / calculate_power(
+                10,
+                ((source_decimals - destination_decimals) as u16)
+            )) as u64);
+        };
+
+        aptos_account::transfer_coins<FusionCoin>(
             &account::create_signer_with_capability(&state.signer_cap),
             receipient_address,
-            (receipient_amount as u64) // Here we need to take care of overflow underflow
+            amount  // Here we need to take care of overflow underflow
         );
-        vector::push_back(&mut state.received_messages, msg_utils::body(&message));
+        // add an event
+    }
+
+    #[view]
+    public fun view_last_id(): vector<u8> acquires State {
+        let state = borrow_global<State>(@tokens);
+        state.last_id
     }
 
 

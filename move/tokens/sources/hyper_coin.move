@@ -4,7 +4,6 @@ module tokens::hyper_coin {
     use std::signer;
     use aptos_std::table;
     use aptos_std::table::Table;
-    use aptos_std::type_info;
     use hp_router::router;
     use hp_library::msg_utils;
     use hp_library::h256;
@@ -21,39 +20,41 @@ module tokens::hyper_coin {
     // Errors
     const ERROR_INVALID_DOMAIN: u64 = 0;
 
-    struct HyperSupra {} //Need to be the coin type
+    struct HyperSupraCoin {} //Need to be the coin type
 
     struct State has key {
-        cap: router::RouterCap<HyperSupra>,
+        cap: router::RouterCap<HyperSupraCoin>,
         destination_decimals: Table<u32, u8>,
-        received_messages: vector<vector<u8>>
+        received_messages: vector<vector<u8>>,
+        last_id: vector<u8>
     }
 
-    struct HyperSupraCapability has key {
-        burn_cap: coin::BurnCapability<HyperSupra>,
-        freeze_cap: coin::FreezeCapability<HyperSupra>,
-        mint_cap: coin::MintCapability<HyperSupra>,
+    struct CoinCapability has key {
+        burn_cap: coin::BurnCapability<HyperSupraCoin>,
+        freeze_cap: coin::FreezeCapability<HyperSupraCoin>,
+        mint_cap: coin::MintCapability<HyperSupraCoin>,
     }
 
     /// Initialize Module
     fun init_module(account: &signer) {
-        let cap = router::init<HyperSupra>(account);
+        let cap = router::init<HyperSupraCoin>(account);
         move_to<State>(account, State {
             cap,
             destination_decimals: table::new(),
-            received_messages: vector::empty()
+            received_messages: vector::empty(),
+            last_id: vector::empty()
         });
 
-        let (burn_cap, freeze_cap, mint_cap) = coin::initialize<HyperSupra>(
+        let (burn_cap, freeze_cap, mint_cap) = coin::initialize<HyperSupraCoin>(
             account,
-            string::utf8(b"HyperSupra"),
-            string::utf8(b"HyperSupra"),
-            8,
+            string::utf8(b"HyperSupraCoin"),
+            string::utf8(b"HyperSupraCoin"),
+            6,
             true,
         );
-        coin::register<HyperSupra>(account);
+        coin::register<HyperSupraCoin>(account);
 
-        move_to(account, HyperSupraCapability {
+        move_to(account, CoinCapability {
             burn_cap,
             freeze_cap,
             mint_cap,
@@ -90,16 +91,17 @@ module tokens::hyper_coin {
         account: &signer,
         dest_domain: u32,
         dest_receipient: vector<u8>,
-        amount: u64) acquires HyperSupraCapability, State {
+        amount: u64) acquires CoinCapability, State {
         let state = borrow_global_mut<State>(@tokens);
         assert!(table::contains(&state.destination_decimals, dest_domain), 2);
         let data_amount: u256;
-        let source_decimals = coin::decimals<HyperSupra>();
+        let source_decimals = coin::decimals<HyperSupraCoin>();
+        //assert for destination decimals for graceful exit
         let destination_decimals = *table::borrow(&state.destination_decimals, dest_domain);
         if (source_decimals < destination_decimals) {
             data_amount = (amount as u256) * calculate_power(10, ((destination_decimals - source_decimals) as u16));
         }
-        else if (source_decimals < destination_decimals) {
+        else if (source_decimals == destination_decimals) {
             data_amount = (amount as u256);
         }
         else {
@@ -107,9 +109,9 @@ module tokens::hyper_coin {
             amount = (data_amount as u64);
         };
         let sender = signer::address_of(account);
-        let caps = borrow_global<HyperSupraCapability>(@tokens);
-        coin::burn_from(sender, amount, &caps.burn_cap);
-        mailbox::dispatch<HyperSupra>(
+        let caps = borrow_global<CoinCapability>(@tokens);
+        coin::burn_from<HyperSupraCoin>(sender, amount, &caps.burn_cap);
+        state.last_id = mailbox::dispatch<HyperSupraCoin>(
             dest_domain,
             token_msg_utils::format_token_message_into_bytes(
                 h256::from_bytes(&dest_receipient),
@@ -118,17 +120,18 @@ module tokens::hyper_coin {
             ),
             &state.cap
         );
+        // add an event
     }
 
     public entry fun transfer_remote_with_gas(
         account: &signer,
         dest_domain: u32,
         dest_receipient: vector<u8>,
-        amount: u64) acquires HyperSupraCapability, State {
+        amount: u64) acquires CoinCapability, State {
         let state = borrow_global_mut<State>(@tokens);
         assert!(table::contains(&state.destination_decimals, dest_domain), 2);
         let data_amount: u256;
-        let source_decimals = coin::decimals<HyperSupra>();
+        let source_decimals = coin::decimals<HyperSupraCoin>();
         let destination_decimals = *table::borrow(&state.destination_decimals, dest_domain);
         if (source_decimals < destination_decimals) {
             data_amount = (amount as u256) * calculate_power(10, ((destination_decimals - source_decimals) as u16));
@@ -141,9 +144,9 @@ module tokens::hyper_coin {
             amount = (data_amount as u64);
         };
         let sender = signer::address_of(account);
-        let caps = borrow_global<HyperSupraCapability>(@tokens);
+        let caps = borrow_global<CoinCapability>(@tokens);
         coin::burn_from(sender, amount, &caps.burn_cap);
-        mailbox::dispatch_with_gas<HyperSupra>(
+        state.last_id = mailbox::dispatch_with_gas<HyperSupraCoin>(
             account,
             dest_domain,
             token_msg_utils::format_token_message_into_bytes(
@@ -154,6 +157,7 @@ module tokens::hyper_coin {
             DEFAULT_GAS_AMOUNT,
             &state.cap
         );
+        // add an event
     }
 
 
@@ -161,27 +165,58 @@ module tokens::hyper_coin {
     public entry fun handle_message(
         message: vector<u8>,
         metadata: vector<u8>
-    ) acquires State, HyperSupraCapability {
+    ) acquires State, CoinCapability {
         let state = borrow_global_mut<State>(@tokens);
 
-        mailbox::handle_message<HyperSupra>(
+        mailbox::handle_message<HyperSupraCoin>(
             message,
             metadata,
             &state.cap
         );
+
+        let src_domain = msg_utils::origin_domain(&message);
 
         let message_body = msg_utils::body(&message);
 
         let receipient_address = token_msg_utils::recipient(&message_body);
         let receipient_amount = token_msg_utils::amount(&message_body);
 
-        let caps = borrow_global<HyperSupraCapability>(@tokens);
-        let coins = coin::mint<HyperSupra>(
-            (receipient_amount as u64),
+
+        let destination_decimals = coin::decimals<HyperSupraCoin>();
+        let source_decimals = *table::borrow(&state.destination_decimals, src_domain);
+
+        let amount;
+
+        if (source_decimals < destination_decimals) {
+            amount = (receipient_amount * calculate_power(
+                10,
+                ((destination_decimals - source_decimals) as u16)
+            ) as u64);
+        }
+        else if (source_decimals == destination_decimals) {
+            amount = (receipient_amount as u64);
+        }
+        else {
+            amount = ((receipient_amount / calculate_power(
+                10,
+                ((source_decimals - destination_decimals) as u16)
+            )) as u64);
+        };
+
+
+        let caps = borrow_global<CoinCapability>(@tokens);
+        let coins = coin::mint<HyperSupraCoin>(
+            amount,
             &caps.mint_cap
         ); // Here we need to take care of overflow underflow
-        aptos_account::deposit_coins<HyperSupra>(receipient_address, coins);
-        vector::push_back(&mut state.received_messages, msg_utils::body(&message));
+        aptos_account::deposit_coins<HyperSupraCoin>(receipient_address, coins);
+        // add an event
+    }
+
+    #[view]
+    public fun view_last_id(): vector<u8> acquires State {
+        let state = borrow_global<State>(@tokens);
+        state.last_id
     }
 
 
