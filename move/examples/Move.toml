@@ -5,9 +5,9 @@ authors = []
 
 [addresses]
 examples = "_"
-hp_router = "0x123452"
-hp_library = "0x123453"
-hp_mailbox = "0x123454"
+hp_router = "_"
+hp_library = "_"
+hp_mailbox = "_"
 
 [dev-addresses]
 

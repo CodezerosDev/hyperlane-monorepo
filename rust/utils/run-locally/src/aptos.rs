@@ -68,13 +68,13 @@ pub fn init_aptos_modules_state() {
     Program::new("bash")
         .working_dir("../move/e2e/")
         .cmd("init_states.sh")
-        .cmd("init_ln1_modules")
+        .cmd("init_ln1_modules_for_token_collateral")
         .run()
         .join();
     Program::new("bash")
         .working_dir("../move/e2e/")
         .cmd("init_states.sh")
-        .cmd("init_ln2_modules")
+        .cmd("init_ln2_modules_for_token")
         .run()
         .join();
 }
@@ -94,15 +94,15 @@ pub fn aptos_send_messages() {
     Program::new("bash")
         .working_dir("../move/e2e/")
         .cmd("init_states.sh")
-        .cmd("send_hello_ln1_to_ln2")
+        .cmd("send_token_collateral_from_ln1_to_token_ln2")
         .run()
         .join();
-    Program::new("bash")
-        .working_dir("../move/e2e/")
-        .cmd("init_states.sh")
-        .cmd("send_hello_ln2_to_ln1")
-        .run()
-        .join();
+    // Program::new("bash")
+    //     .working_dir("../move/e2e/")
+    //     .cmd("init_states.sh")
+    //     .cmd("send_hello_ln2_to_ln1")
+    //     .run()
+    //     .join();
 }
 
 #[apply(as_task)]
@@ -110,7 +110,7 @@ pub fn aptos_to_evm_send_message() {
     Program::new("bash")
         .working_dir("../move/e2e/")
         .cmd("init_states.sh")
-        .cmd("send_hello_ln1_to_test1")
+        .cmd("send_tokens_collateral_ln1_to_tokens_test1")
         .run()
         .join();
 }

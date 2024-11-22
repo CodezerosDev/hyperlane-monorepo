@@ -109,7 +109,6 @@ async function main() {
       getAddresses(environment, Modules.PROXY_FACTORY),
       multiProvider,
     );
-    console.log(ismFactory);
     deployer = new HyperlaneCoreDeployer(
       multiProvider,
       ismFactory,
@@ -121,6 +120,8 @@ async function main() {
       multiProvider,
     );
     config = await getWarpConfig(multiProvider, envConfig);
+    // console.log(config);
+
     deployer = new HypERC20Deployer(
       multiProvider,
       ismFactory,

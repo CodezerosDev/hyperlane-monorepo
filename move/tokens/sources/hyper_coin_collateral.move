@@ -70,7 +70,7 @@ module tokens::hyper_coin_collateral {
 
     public entry fun set_destination_token_decimal(admin: &signer, dest_domain: u32, dest_decimal: u8) acquires State {
         assert!(signer::address_of(admin) == @tokens, 404);
-        let state = borrow_global_mut<State>(@tokens);
+        let state = borrow_global_mut<State>(generate_token_deposit_account_address());
         table::add(&mut state.destination_decimals, dest_domain, dest_decimal);
     }
 
@@ -79,7 +79,7 @@ module tokens::hyper_coin_collateral {
         dest_domain: u32,
         dest_receipient: vector<u8>,
         amount: u64) acquires State {
-        let state = borrow_global_mut<State>(@tokens);
+        let state = borrow_global_mut<State>(generate_token_deposit_account_address());
         assert!(table::contains(&state.destination_decimals, dest_domain), 2);
         let data_amount: u256;
         let source_decimals = coin::decimals<FusionCoin>();
@@ -116,7 +116,7 @@ module tokens::hyper_coin_collateral {
         dest_domain: u32,
         dest_receipient: vector<u8>,
         amount: u64) acquires State {
-        let state = borrow_global_mut<State>(@tokens);
+        let state = borrow_global_mut<State>(generate_token_deposit_account_address());
         assert!(table::contains(&state.destination_decimals, dest_domain), 2);
         let data_amount: u256;
         let source_decimals = coin::decimals<FusionCoin>();
@@ -157,7 +157,7 @@ module tokens::hyper_coin_collateral {
         message: vector<u8>,
         metadata: vector<u8>
     ) acquires State {
-        let state = borrow_global_mut<State>(@tokens);
+        let state = borrow_global_mut<State>(generate_token_deposit_account_address());
 
         mailbox::handle_message<HyperSupraCollateral>(
             message,
@@ -205,7 +205,7 @@ module tokens::hyper_coin_collateral {
 
     #[view]
     public fun view_last_id(): vector<u8> acquires State {
-        let state = borrow_global<State>(@tokens);
+        let state = borrow_global_mut<State>(generate_token_deposit_account_address());
         state.last_id
     }
 

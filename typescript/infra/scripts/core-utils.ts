@@ -33,5 +33,6 @@ export async function getHyperlaneCore(
   multiProvider = multiProvider || (await config.getMultiProvider());
   const chainAddresses = getEnvAddresses(env);
   const core = HyperlaneCore.fromAddressesMap(chainAddresses, multiProvider);
+  console.log(core);
   return { core, multiProvider, chainAddresses };
 }

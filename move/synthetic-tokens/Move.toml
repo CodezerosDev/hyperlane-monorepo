@@ -1,12 +1,16 @@
 [package]
-name = "HyperlaneRouter"
+name = "synthetic_tokens"
 version = "1.0.0"
 authors = []
 
 [addresses]
+synthetic_tokens = "_"
 hp_router = "_"
+hp_library = "_"
+hp_mailbox = "_"
 
 [dev-addresses]
+
 
 [dependencies.AptosFramework]
 git = "https://github.com/aptos-labs/aptos-core.git"
@@ -15,5 +19,14 @@ subdir = "aptos-move/framework/aptos-framework"
 
 [dependencies.HyperlaneLibrary]
 local = "../library"
+
+[dependencies.HyperlaneISM]
+local = "../isms"
+
+[dependencies.HyperlaneMailBox]
+local = "../mailbox"
+
+[dependencies.HyperlaneRouter]
+local = "../router"
 
 [dev-dependencies]

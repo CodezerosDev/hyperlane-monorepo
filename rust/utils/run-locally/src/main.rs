@@ -440,7 +440,7 @@ fn main() -> ExitCode {
     for _i in 0..5 {
         // aptos_send_messages().join();
         aptos_to_evm_send_message().join();
-        evm_to_aptos_send_message().join();
+        // evm_to_aptos_send_message().join();
     }
 
     log!("Setup complete! Agents running in background...");

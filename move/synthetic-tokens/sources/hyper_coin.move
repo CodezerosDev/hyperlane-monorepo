@@ -1,4 +1,4 @@
-module tokens::hyper_coin {
+module synthetic_tokens::hyper_coin {
     use std::vector;
     use std::string;
     use std::signer;
@@ -48,7 +48,7 @@ module tokens::hyper_coin {
         let (burn_cap, freeze_cap, mint_cap) = coin::initialize<HyperSupraCoin>(
             account,
             string::utf8(b"HyperSupraCoin"),
-            string::utf8(b"HyperSupraCoin"),
+            string::utf8(b"HyperCoin"),
             6,
             true,
         );
@@ -82,8 +82,8 @@ module tokens::hyper_coin {
     }
 
     public entry fun set_destination_token_decimal(admin: &signer, dest_domain: u32, dest_decimal: u8) acquires State {
-        assert!(signer::address_of(admin) == @tokens, 404);
-        let state = borrow_global_mut<State>(@tokens);
+        assert!(signer::address_of(admin) == @synthetic_tokens, 404);
+        let state = borrow_global_mut<State>(@synthetic_tokens);
         table::add(&mut state.destination_decimals, dest_domain, dest_decimal);
     }
 
@@ -92,7 +92,7 @@ module tokens::hyper_coin {
         dest_domain: u32,
         dest_receipient: vector<u8>,
         amount: u64) acquires CoinCapability, State {
-        let state = borrow_global_mut<State>(@tokens);
+        let state = borrow_global_mut<State>(@synthetic_tokens);
         assert!(table::contains(&state.destination_decimals, dest_domain), 2);
         let data_amount: u256;
         let source_decimals = coin::decimals<HyperSupraCoin>();
@@ -109,7 +109,7 @@ module tokens::hyper_coin {
             amount = (data_amount as u64);
         };
         let sender = signer::address_of(account);
-        let caps = borrow_global<CoinCapability>(@tokens);
+        let caps = borrow_global<CoinCapability>(@synthetic_tokens);
         coin::burn_from<HyperSupraCoin>(sender, amount, &caps.burn_cap);
         state.last_id = mailbox::dispatch<HyperSupraCoin>(
             dest_domain,
@@ -128,7 +128,7 @@ module tokens::hyper_coin {
         dest_domain: u32,
         dest_receipient: vector<u8>,
         amount: u64) acquires CoinCapability, State {
-        let state = borrow_global_mut<State>(@tokens);
+        let state = borrow_global_mut<State>(@synthetic_tokens);
         assert!(table::contains(&state.destination_decimals, dest_domain), 2);
         let data_amount: u256;
         let source_decimals = coin::decimals<HyperSupraCoin>();
@@ -144,7 +144,7 @@ module tokens::hyper_coin {
             amount = (data_amount as u64);
         };
         let sender = signer::address_of(account);
-        let caps = borrow_global<CoinCapability>(@tokens);
+        let caps = borrow_global<CoinCapability>(@synthetic_tokens);
         coin::burn_from(sender, amount, &caps.burn_cap);
         state.last_id = mailbox::dispatch_with_gas<HyperSupraCoin>(
             account,
@@ -166,7 +166,7 @@ module tokens::hyper_coin {
         message: vector<u8>,
         metadata: vector<u8>
     ) acquires State, CoinCapability {
-        let state = borrow_global_mut<State>(@tokens);
+        let state = borrow_global_mut<State>(@synthetic_tokens);
 
         mailbox::handle_message<HyperSupraCoin>(
             message,
@@ -204,7 +204,7 @@ module tokens::hyper_coin {
         };
 
 
-        let caps = borrow_global<CoinCapability>(@tokens);
+        let caps = borrow_global<CoinCapability>(@synthetic_tokens);
         let coins = coin::mint<HyperSupraCoin>(
             amount,
             &caps.mint_cap
@@ -215,7 +215,7 @@ module tokens::hyper_coin {
 
     #[view]
     public fun view_last_id(): vector<u8> acquires State {
-        let state = borrow_global<State>(@tokens);
+        let state = borrow_global<State>(@synthetic_tokens);
         state.last_id
     }
 

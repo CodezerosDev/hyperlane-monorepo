@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-hp_library = "0x123453"
+hp_library = "_"
 
 [dev-addresses]
 

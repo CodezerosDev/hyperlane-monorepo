@@ -23,9 +23,9 @@ pub fn start_anvil(config: Arc<Config>) -> AgentHandles {
     yarn_monorepo.clone().cmd("install").run().join();
     if !config.is_ci_env {
         // don't need to clean in the CI
-        yarn_monorepo.clone().cmd("clean").run().join();
+        // yarn_monorepo.clone().cmd("clean").run().join();
     }
-    yarn_monorepo.clone().cmd("build").run().join();
+    // yarn_monorepo.clone().cmd("build").run().join();
 
     if !config.is_ci_env {
         // Kill any existing anvil processes just in case since it seems to have issues getting cleaned up
@@ -48,6 +48,9 @@ pub fn start_anvil(config: Arc<Config>) -> AgentHandles {
 
     log!("Deploying hyperlane core contracts...");
     yarn_infra.clone().cmd("deploy-core").run().join();
+
+    log!("Deploying hyperlane warp contracts...");
+    yarn_infra.clone().cmd("deploy-warp").run().join();
 
     log!("Deploying multicall contract...");
     tokio::runtime::Builder::new_current_thread()
