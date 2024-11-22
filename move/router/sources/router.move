@@ -2,14 +2,9 @@ module hp_router::router {
   
   use std::vector;
   use std::signer;
-  use aptos_framework::account;
-  use aptos_framework::event::{Self, EventHandle};
+  use aptos_framework::event;
   use aptos_std::simple_map::{Self, SimpleMap};
   use aptos_std::type_info::{Self, TypeInfo};
-
-  use hp_library::msg_utils;
-  use hp_library::h256;
-  use hp_router::events::{Self, EnrollRemoteRouterEvent};
 
   //
   // Errors
@@ -42,11 +37,16 @@ module hp_router::router {
   struct RouterState has store {
     owner_address: address,
     routers: SimpleMap<u32, vector<u8>>,
-    // event handle
-    enroll_router_events: EventHandle<EnrollRemoteRouterEvent>
   }
 
   struct RouterCap<phantom T> has store {}
+
+  // event resources
+  #[event]
+  struct EnrollRemoteRouterEvent has store, drop {
+    domain: u32,
+    router: vector<u8>
+  }
 
   fun init_module(account: &signer) {
     move_to<RouterRegistry>(account, RouterRegistry {
@@ -69,8 +69,7 @@ module hp_router::router {
 
     simple_map::add(&mut registry.router_state_map, type_info::type_of<T>(), RouterState {
       owner_address: account_address,
-      routers: simple_map::create<u32, vector<u8>>(),
-      enroll_router_events: account::new_event_handle<EnrollRemoteRouterEvent>(account)
+      routers: simple_map::create<u32, vector<u8>>()
     });
 
     // add package
@@ -137,22 +136,16 @@ module hp_router::router {
   fun internal_enroll_remote_router(
     state: &mut RouterState,
     domain: u32,
-    remote_router: vector<u8>
+    router: vector<u8>
   ) {
     if (!simple_map::contains_key(&state.routers, &domain)) {
-      simple_map::add(&mut state.routers, domain, remote_router);
+      simple_map::add(&mut state.routers, domain, router);
     } else {
       let router_address = simple_map::borrow_mut(&mut state.routers, &domain);
-      *router_address = remote_router;
+      *router_address = router;
     };
 
-    event::emit_event<EnrollRemoteRouterEvent>(
-      &mut state.enroll_router_events,
-      events::new_enroll_remote_router_event(
-        domain,
-        remote_router
-      )
-    );
+    event::emit( EnrollRemoteRouterEvent { domain, router });
   }
 
   /// Check and return remote router address

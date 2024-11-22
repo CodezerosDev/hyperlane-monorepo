@@ -3,9 +3,7 @@ module hp_igps::gas_oracle {
   use std::vector::Self;
   use std::signer;
   use aptos_std::simple_map::{Self, SimpleMap};
-  use aptos_framework::account;
-  use aptos_framework::event::{Self, EventHandle}; 
-  use hp_igps::events::{ Self, SetGasDataEvent };
+  use aptos_framework::event;
 
   //
   // Errors
@@ -27,9 +25,14 @@ module hp_igps::gas_oracle {
   struct OracleState has key {
     owner_address: address,
     // Mapping (Domain => GasData)
-    gas_data_set: SimpleMap<u32, GasData>,
-    // event handlers
-    set_gas_data_events: EventHandle<SetGasDataEvent>,
+    gas_data_set: SimpleMap<u32, GasData>
+  }
+
+  #[event]
+  struct SetGasDataEvent has store, drop {
+    remote_domain: u32,
+    token_exchange_rate: u128,
+    gas_price: u128
   }
 
   /// Constructor
@@ -37,8 +40,7 @@ module hp_igps::gas_oracle {
     let account_address = signer::address_of(account);
     move_to<OracleState>(account, OracleState {
       owner_address: account_address,
-      gas_data_set: simple_map::create<u32, GasData>(),
-      set_gas_data_events: account::new_event_handle<SetGasDataEvent>(account)
+      gas_data_set: simple_map::create<u32, GasData>()
     });
   }
 
@@ -100,14 +102,11 @@ module hp_igps::gas_oracle {
       gas_data.gas_price = gas_price;
     };
 
-    event::emit_event<SetGasDataEvent>(
-      &mut state.set_gas_data_events,
-      events::new_set_gas_data_event(
-        remote_domain,
-        token_exchange_rate,
-        gas_price
-      )
-    );
+    event::emit(SetGasDataEvent {
+      remote_domain,
+      token_exchange_rate,
+      gas_price
+    });
   }
 
   // Assert Functions
