@@ -211,8 +211,14 @@ where
             .await
             .map_err(ChainCommunicationError::from_other)?
             .into_inner();
+        let indexed_data = Indexed::new(evt_data.clone().try_into()?);
+        let index_data = if let Some(seq) = evt_data.index_or_sequence() {
+            indexed_data.with_sequence(seq)
+        } else {
+            indexed_data
+        };
         messages.push((
-            Indexed::new(evt_data.clone().try_into()?),
+            index_data,
             LogMeta {
                 address: account_address.into_bytes().into(),
                 block_number: block_height,

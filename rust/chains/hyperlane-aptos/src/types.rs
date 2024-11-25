@@ -37,8 +37,8 @@ pub trait TxSpecificData {
     /// return transaction_hash
     fn transaction_hash(&self) -> String;
     // TODO: can be added nonce and event sequence later
-    // return Some index or sequence of the event or tx needs indexing
-    // fn index_or_sequence(&self) -> Option<u32>;
+    /// return Some index or sequence of the event or tx needs indexing
+    fn index_or_sequence(&self) -> Option<u32>;
 }
 
 /// Event Data of Message Dispatch
@@ -60,6 +60,10 @@ impl TxSpecificData for DispatchEventData {
     }
     fn transaction_hash(&self) -> String {
         self.transaction_hash.clone()
+    }
+
+    fn index_or_sequence(&self) -> Option<u32> {
+        self.block_height.parse::<u32>().ok()
     }
 }
 
@@ -96,6 +100,10 @@ impl TxSpecificData for MerkleTreeInsertionData {
     }
     fn transaction_hash(&self) -> String {
         self.transaction_hash.clone()
+    }
+
+    fn index_or_sequence(&self) -> Option<u32> {
+        self.index.parse::<u32>().ok()
     }
 }
 
@@ -165,6 +173,10 @@ impl TxSpecificData for GasPaymentEventData {
     fn transaction_hash(&self) -> String {
         self.transaction_hash.clone()
     }
+
+    fn index_or_sequence(&self) -> Option<u32> {
+        None
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -205,5 +217,9 @@ impl TxSpecificData for MsgProcessEventData {
     }
     fn transaction_hash(&self) -> String {
         self.transaction_hash.clone()
+    }
+
+    fn index_or_sequence(&self) -> Option<u32> {
+        None
     }
 }
